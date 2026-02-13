@@ -1,16 +1,17 @@
-# Event Tools
+# Event Suite
+**Control a big screen from your phone. Perfect for events, competitions, and presentations.**
 
-An open-source Taskmaster-style event toolkit. One device controls what appears on a big screen — run timers, show scoreboards, pick random names, display announcements, and more.
+An open source Taskmaster style event toolkit. One device controls what appears on a big screen. Run timers, show scoreboards, pick random names, display announcements, run through slideshows and more.
 
 ## Quick Start
-
 Only Python 3 required (no dependencies).
 
 ```bash
-python3 server.py
+python3 server.py          # Default port 8000
+python3 server.py 3000     # Custom port
 ```
 
-This opens the homepage in your browser and prints the local network URL. That's it.
+This opens the homepage in your browser and prints the local network URLs for both the controller and the display. That's it.
 
 ## Taskmaster Mode (Controller + Display)
 
