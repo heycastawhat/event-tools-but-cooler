@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <title>Random Picker - Event Tools</title>
+</head>
+<body>
+    <div class="container" style="padding: 1rem; max-width: 600px;">
+        <header class="flex items-center justify-between mb-4">
+            <h1 style="font-size: 1.5rem;">Random Picker</h1>
+            <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Back</button>
+        </header>
+
+        <div class="mode-toggle mb-4">
+            <button class="mode-btn active" id="peopleMode" onclick="setMode('people')">People</button>
+            <button class="mode-btn" id="teamsMode" onclick="setMode('teams')">Teams</button>
+        </div>
+
+        <div id="welcomeModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-title">Welcome to Random Picker</div>
+                <div class="modal-text">Where would you like to get your people from?</div>
+                <div class="modal-buttons">
+                    <button class="btn btn-primary" onclick="useTeamGenData()">Use Team Generator</button>
+                    <button class="btn btn-secondary" onclick="useManualEntry()">Enter Manually</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="alertDisplay" class="alert-display" style="display: none;">
+            <div class="alert-text" id="alertText"></div>
+        </div>
+
+        <div id="resultDisplay" class="result-display">
+            <div class="result-label">Tap Pick to start</div>
+            <div class="result-name" id="resultName">?</div>
+        </div>
+
+        <button class="pick-btn" id="pickBtn" onclick="pick()">Spin the Wheel</button>
+
+        <div class="card mt-4">
+            <div class="flex items-center justify-between" onclick="toggleOptions()" style="cursor: pointer;">
+                <h3 style="font-size: 1rem; margin: 0;">Options</h3>
+                <span id="optionsIcon" class="text-muted">▼</span>
+            </div>
+            <div id="optionsContent" style="display: none;" class="mt-2">
+                <div id="peopleOptions">
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="checkbox" id="useTeamGen" onchange="toggleSource()">
+                        <label for="useTeamGen" style="margin: 0;">Use participants from Team Generator</label>
+                    </div>
+                    <div id="manualEntry">
+                        <label>Add people manually</label>
+                        <textarea id="peopleInput" placeholder="Enter names, one per line" rows="4" style="width: 100%; resize: vertical;"></textarea>
+                        <button class="btn btn-secondary mt-2" onclick="loadPeople()" style="width: 100%;">Load Names</button>
+                    </div>
+                </div>
+                <div id="teamsOptions" style="display: none;">
+                    <p class="text-muted text-sm mb-2">Uses teams from Team Generator</p>
+                    <button class="btn btn-secondary" onclick="loadTeams()" style="width: 100%;">Reload Teams</button>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="removeAfterPick">
+                        <label for="removeAfterPick" style="margin: 0;">Remove after picking (no repeats)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 style="font-size: 1rem; margin: 0;">Pool <span class="text-muted">(<span id="poolCount">0</span>)</span></h3>
+                <button class="btn btn-ghost text-sm" onclick="resetPool()">Reset</button>
+            </div>
+            <div id="poolList" class="pool-list"></div>
+            <div id="emptyPool" class="text-muted text-center" style="padding: 1rem;">
+                No items in pool. Add people or load from Team Generator.
+            </div>
+        </div>
+
+        <div id="historySection" class="card mt-4" style="display: none;">
+            <div class="flex items-center justify-between mb-2">
+                <h3 style="font-size: 1rem; margin: 0;">History</h3>
+                <button class="btn btn-ghost text-sm" onclick="clearHistory()">Clear</button>
+            </div>
+            <div id="historyList" class="history-list"></div>
+        </div>
+    </div>
+
+    <style>
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 0.25rem;
+            gap: 0.25rem;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        
+        .mode-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
+        
+        .result-display {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all var(--transition);
+        }
+        
+        .result-display.spinning {
+            border-color: var(--accent);
+            background: var(--accent-subtle);
+        }
+        
+        .result-display.winner {
+            border-color: var(--success);
+            background: rgba(63, 185, 80, 0.1);
+            animation: celebrate 0.5s ease-out;
+        }
+        
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+        
+        .result-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .result-name {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+        
+        .result-display.winner .result-name {
+            color: var(--success);
+        }
+        
+        .alert-display {
+            background: var(--bg-secondary);
+            border: 2px solid var(--error);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            animation: shake 0.5s ease-out;
+        }
+        
+        .alert-text {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--error);
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            animation: modalIn 0.3s ease-out;
+        }
+        
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .modal-text {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .pick-btn {
+            width: 100%;
+            padding: 1.25rem;
+            font-size: 1.25rem;
+            font-weight: 600;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        
+        .pick-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .pick-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pick-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .pool-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .pool-item {
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+        
+        .pool-item.picked {
+            opacity: 0.4;
+            text-decoration: line-through;
+        }
+        
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-number {
+            width: 24px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        
+        .history-name {
+            font-weight: 500;
+        }
+    </style>
+
+    <script>
+        let mode = 'people';
+        let pool = [];
+        let originalPool = [];
+        let peoplePool = [];
+        let peopleOriginalPool = [];
+        let history = [];
+        let isSpinning = false;
+
+        function setMode(newMode) {
+            // Save current pool before switching
+            if (mode === 'people') {
+                peoplePool = [...pool];
+                peopleOriginalPool = [...originalPool];
+            }
+            
+            mode = newMode;
+            document.getElementById('peopleMode').classList.toggle('active', mode === 'people');
+            document.getElementById('teamsMode').classList.toggle('active', mode === 'teams');
+            document.getElementById('peopleOptions').style.display = mode === 'people' ? 'block' : 'none';
+            document.getElementById('teamsOptions').style.display = mode === 'teams' ? 'block' : 'none';
+            
+            if (mode === 'teams') {
+                loadTeams();
+            } else {
+                // Restore people pool
+                pool = [...peoplePool];
+                originalPool = [...peopleOriginalPool];
+                render();
+            }
+        }
+
+        function toggleOptions() {
+            const content = document.getElementById('optionsContent');
+            const icon = document.getElementById('optionsIcon');
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▲' : '▼';
+        }
+
+        function toggleSource() {
+            const useTeamGen = document.getElementById('useTeamGen').checked;
+            document.getElementById('manualEntry').style.display = useTeamGen ? 'none' : 'block';
+            
+            if (useTeamGen) {
+                loadFromTeamGen();
+            }
+        }
+
+        function showAlert(message) {
+            const alertDisplay = document.getElementById('alertDisplay');
+            document.getElementById('alertText').textContent = message;
+            alertDisplay.style.display = 'block';
+            alertDisplay.style.animation = 'none';
+            alertDisplay.offsetHeight;
+            alertDisplay.style.animation = 'shake 0.5s ease-out';
+        }
+
+        function hideAlert() {
+            document.getElementById('alertDisplay').style.display = 'none';
+        }
+
+        function closeModal() {
+            document.getElementById('welcomeModal').style.display = 'none';
+        }
+
+        function useTeamGenData() {
+            closeModal();
+            document.getElementById('useTeamGen').checked = true;
+            document.getElementById('manualEntry').style.display = 'none';
+            loadFromTeamGen();
+        }
+
+        function useManualEntry() {
+            closeModal();
+            document.getElementById('useTeamGen').checked = false;
+            document.getElementById('manualEntry').style.display = 'block';
+            toggleOptions();
+        }
+
+        function loadFromTeamGen() {
+            const saved = localStorage.getItem('eventToolsTeams');
+            if (!saved) {
+                showAlert('No participants found in Team Generator!');
+                document.getElementById('useTeamGen').checked = false;
+                document.getElementById('manualEntry').style.display = 'block';
+                return;
+            }
+            hideAlert();
+            
+            const teams = JSON.parse(saved);
+            const allPeople = teams.flatMap(t => t.members);
+            pool = [...allPeople];
+            originalPool = [...allPeople];
+            render();
+        }
+
+        function loadPeople() {
+            const input = document.getElementById('peopleInput').value;
+            const names = input.split('\n').map(n => n.trim()).filter(n => n);
+            pool = [...names];
+            originalPool = [...names];
+            render();
+        }
+
+        function loadTeams() {
+            const saved = localStorage.getItem('eventToolsTeams');
+            if (!saved) {
+                showAlert('No teams found! Generate teams in Team Generator first.');
+                return;
+            }
+            hideAlert();
+            
+            const teams = JSON.parse(saved);
+            pool = teams.map(t => t.name);
+            originalPool = [...pool];
+            render();
+        }
+
+        function pick() {
+            if (pool.length === 0 || isSpinning) return;
+            
+            isSpinning = true;
+            const display = document.getElementById('resultDisplay');
+            const nameEl = document.getElementById('resultName');
+            const btn = document.getElementById('pickBtn');
+            
+            display.classList.remove('winner');
+            display.classList.add('spinning');
+            btn.disabled = true;
+            
+            // Spinning animation
+            let spins = 0;
+            const totalSpins = 20;
+            const spinInterval = setInterval(() => {
+                const randomIdx = Math.floor(Math.random() * pool.length);
+                nameEl.textContent = pool[randomIdx];
+                spins++;
+                
+                if (spins >= totalSpins) {
+                    clearInterval(spinInterval);
+                    
+                    // Final pick
+                    const winnerIdx = Math.floor(Math.random() * pool.length);
+                    const winner = pool[winnerIdx];
+                    
+                    nameEl.textContent = winner;
+                    display.classList.remove('spinning');
+                    display.classList.add('winner');
+                    
+                    // Add to history
+                    history.unshift(winner);
+                    
+                    // Remove if option checked
+                    if (document.getElementById('removeAfterPick').checked) {
+                        pool.splice(winnerIdx, 1);
+                    }
+                    
+                    isSpinning = false;
+                    btn.disabled = false;
+                    render();
+                    
+                    // Play sound
+                    playWinSound();
+                }
+            }, 80);
+        }
+
+        function playWinSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            [0, 100, 200].forEach((delay, i) => {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = 600 + (i * 200);
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.15);
+                }, delay);
+            });
+            
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+        }
+
+        function resetPool() {
+            pool = [...originalPool];
+            render();
+        }
+
+        function clearHistory() {
+            history = [];
+            render();
+        }
+
+        function render() {
+            const poolList = document.getElementById('poolList');
+            const poolCount = document.getElementById('poolCount');
+            const emptyPool = document.getElementById('emptyPool');
+            const historySection = document.getElementById('historySection');
+            const historyList = document.getElementById('historyList');
+            
+            poolCount.textContent = pool.length;
+            
+            if (pool.length === 0 && originalPool.length === 0) {
+                poolList.innerHTML = '';
+                emptyPool.style.display = 'block';
+            } else {
+                emptyPool.style.display = 'none';
+                poolList.innerHTML = originalPool.map(item => {
+                    const isPicked = !pool.includes(item);
+                    return `<span class="pool-item ${isPicked ? 'picked' : ''}">${item}</span>`;
+                }).join('');
+            }
+            
+            if (history.length > 0) {
+                historySection.style.display = 'block';
+                historyList.innerHTML = history.map((item, i) => `
+                    <div class="history-item">
+                        <span class="history-number">${i + 1}</span>
+                        <span class="history-name">${item}</span>
+                    </div>
+                `).join('');
+            } else {
+                historySection.style.display = 'none';
+            }
+        }
+
+        render();
+    </script>
+</body>
+</html>

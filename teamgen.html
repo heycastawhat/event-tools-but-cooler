@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <title>Team Generator - Event Tools</title>
+</head>
+<body>
+    <div class="container">
+        <header class="flex items-center justify-between mb-4">
+            <h1>Team Generator</h1>
+            <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Back</button>
+        </header>
+
+        <div class="card mb-4">
+            <div class="flex items-center justify-between" onclick="toggleSection('participants')" style="cursor: pointer;">
+                <h3 style="margin: 0;">Add Participants <span class="text-muted text-sm">(<span id="participantCount">0</span>)</span></h3>
+                <span id="participantsIcon" class="text-muted">▼</span>
+            </div>
+            <div id="participantsContent" style="display: none;" class="mt-2">
+                <div class="flex items-center justify-between mb-2">
+                    <div></div>
+                    <button class="btn btn-ghost text-sm" onclick="event.stopPropagation(); toggleBulkMode()" id="bulkToggle">Bulk Add</button>
+                </div>
+                <div id="singleMode" class="flex gap-2">
+                    <input type="text" id="nameInput" placeholder="Enter participant name" onkeypress="if(event.key === 'Enter') addParticipant()">
+                    <button class="btn btn-primary" onclick="addParticipant()">Add</button>
+                </div>
+                <div id="bulkMode" style="display: none;">
+                    <textarea id="bulkInput" placeholder="Enter names, one per line" rows="5" style="width: 100%; resize: vertical;"></textarea>
+                    <button class="btn btn-primary mt-2" onclick="addBulkParticipants()" style="width: 100%;">Add All</button>
+                </div>
+                <div id="participantList" class="mt-4 flex gap-2" style="flex-wrap: wrap;"></div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="flex items-center justify-between" onclick="toggleSection('settings')" style="cursor: pointer;">
+                <h3 style="margin: 0;">Team Settings</h3>
+                <span id="settingsIcon" class="text-muted">▼</span>
+            </div>
+            <div id="settingsContent" style="display: none;" class="mt-2">
+                <div class="flex gap-4" style="flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="teamCount">Number of Teams</label>
+                        <input type="number" id="teamCount" value="2" min="2" max="20">
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="teamNamePrefix">Team Name Prefix</label>
+                        <input type="text" id="teamNamePrefix" value="Team" placeholder="e.g., Team, Group">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="flex items-center justify-between" onclick="toggleSection('nogoes')" style="cursor: pointer;">
+                <h3 style="margin: 0;">No-Goes <span class="text-muted text-sm">(<span id="nogoCount">0</span>)</span></h3>
+                <span id="nogoesIcon" class="text-muted">▼</span>
+            </div>
+            <div id="nogoesContent" style="display: none;" class="mt-2">
+                <p class="text-muted text-sm mb-2">People who shouldn't be on the same team</p>
+                <div id="nogoSelection" class="nogo-selection mb-2"></div>
+                <button class="btn btn-secondary" onclick="addNoGo()" style="width: 100%;">Add No-Go Group</button>
+                <div id="nogoList" class="mt-4 flex flex-col gap-2"></div>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-4">
+            <button class="btn btn-primary" onclick="generateTeams()">Generate Teams</button>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+        </div>
+
+        <div id="teamsOutput" class="teams-grid"></div>
+    </div>
+
+    <style>
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+        .team-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+        }
+        .team-card h4 {
+            color: var(--accent);
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .team-member {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+        .team-member:last-child {
+            border-bottom: none;
+        }
+        .participant-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+        .participant-tag button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+        }
+        .participant-tag button:hover {
+            color: var(--error);
+        }
+        .nogo-select {
+            flex: 1;
+            min-width: 100px;
+        }
+        .nogo-selection {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .nogo-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.625rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .nogo-checkbox:has(input:checked) {
+            background: rgba(248, 81, 73, 0.15);
+            border-color: var(--error);
+            color: var(--error);
+        }
+        .nogo-checkbox input {
+            width: auto;
+            margin: 0;
+        }
+        .nogo-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background: rgba(248, 81, 73, 0.15);
+            border: 1px solid var(--error);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            color: var(--error);
+        }
+        .nogo-tag button {
+            background: none;
+            border: none;
+            color: var(--error);
+            cursor: pointer;
+            padding: 0;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.7;
+        }
+        .nogo-tag button:hover {
+            opacity: 1;
+        }
+    </style>
+
+    <script>
+        let participants = [];
+        let noGoes = [];
+        let bulkMode = false;
+
+        const savedParticipants = localStorage.getItem('eventToolsParticipants');
+        if (savedParticipants) {
+            participants = JSON.parse(savedParticipants);
+            updateParticipantDisplay();
+        }
+
+        function toggleSection(section) {
+            const content = document.getElementById(section + 'Content');
+            const icon = document.getElementById(section + 'Icon');
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▲' : '▼';
+        }
+
+        function toggleBulkMode() {
+            bulkMode = !bulkMode;
+            document.getElementById('singleMode').style.display = bulkMode ? 'none' : 'flex';
+            document.getElementById('bulkMode').style.display = bulkMode ? 'block' : 'none';
+            document.getElementById('bulkToggle').textContent = bulkMode ? 'Single Add' : 'Bulk Add';
+        }
+
+        function addParticipant() {
+            const input = document.getElementById('nameInput');
+            const name = input.value.trim();
+            
+            if (name && !participants.includes(name)) {
+                participants.push(name);
+                updateParticipantDisplay();
+                input.value = '';
+            }
+            input.focus();
+        }
+
+        function addBulkParticipants() {
+            const textarea = document.getElementById('bulkInput');
+            const names = textarea.value.split('\n')
+                .map(n => n.trim())
+                .filter(n => n && !participants.includes(n));
+            
+            participants.push(...names);
+            updateParticipantDisplay();
+            textarea.value = '';
+        }
+
+        function removeParticipant(name) {
+            participants = participants.filter(p => p !== name);
+            updateParticipantDisplay();
+        }
+
+        function updateParticipantDisplay() {
+            const list = document.getElementById('participantList');
+            const count = document.getElementById('participantCount');
+            
+            list.innerHTML = participants.map(name => `
+                <span class="participant-tag">
+                    ${name}
+                    <button onclick="removeParticipant('${name}')">&times;</button>
+                </span>
+            `).join('');
+            
+            count.textContent = participants.length;
+            localStorage.setItem('eventToolsParticipants', JSON.stringify(participants));
+            updateNoGoSelects();
+        }
+
+        function updateNoGoSelects() {
+            const container = document.getElementById('nogoSelection');
+            
+            container.innerHTML = participants.map(p => `
+                <label class="nogo-checkbox">
+                    <input type="checkbox" value="${p}">
+                    ${p}
+                </label>
+            `).join('');
+        }
+
+        function getSelectedNoGos() {
+            const checkboxes = document.querySelectorAll('#nogoSelection input:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        function clearNoGoSelection() {
+            document.querySelectorAll('#nogoSelection input').forEach(cb => cb.checked = false);
+        }
+
+        function addNoGo() {
+            const selected = getSelectedNoGos();
+            
+            if (selected.length < 2) {
+                alert('Select at least 2 people');
+                return;
+            }
+            
+            // Check if this exact group already exists
+            const sortedSelected = [...selected].sort();
+            const exists = noGoes.some(group => {
+                const sortedGroup = [...group].sort();
+                return sortedGroup.length === sortedSelected.length &&
+                    sortedGroup.every((p, i) => p === sortedSelected[i]);
+            });
+            
+            if (exists) {
+                alert('This group already added');
+                return;
+            }
+            
+            noGoes.push(selected);
+            updateNoGoDisplay();
+            clearNoGoSelection();
+        }
+
+        function removeNoGo(index) {
+            noGoes.splice(index, 1);
+            updateNoGoDisplay();
+        }
+
+        function updateNoGoDisplay() {
+            const list = document.getElementById('nogoList');
+            const count = document.getElementById('nogoCount');
+            
+            list.innerHTML = noGoes.map((group, i) => `
+                <span class="nogo-tag">
+                    ${group.join(' ✕ ')}
+                    <button onclick="removeNoGo(${i})">&times;</button>
+                </span>
+            `).join('');
+            
+            count.textContent = noGoes.length;
+        }
+
+        function areNoGo(person1, person2) {
+            return noGoes.some(group => 
+                group.includes(person1) && group.includes(person2)
+            );
+        }
+
+        function generateTeams() {
+            const teamCount = parseInt(document.getElementById('teamCount').value) || 2;
+            const prefix = document.getElementById('teamNamePrefix').value || 'Team';
+            const output = document.getElementById('teamsOutput');
+
+            if (participants.length < teamCount) {
+                alert('Not enough participants for the number of teams!');
+                return;
+            }
+
+            // Shuffle participants
+            const shuffled = [...participants].sort(() => Math.random() - 0.5);
+            
+            // Create teams respecting no-goes
+            const teams = Array.from({ length: teamCount }, () => []);
+            
+            for (const person of shuffled) {
+                // Find a team where this person has no conflicts
+                let placed = false;
+                
+                // Try each team, starting with the smallest
+                const teamOrder = teams
+                    .map((t, i) => ({ team: t, index: i }))
+                    .sort((a, b) => a.team.length - b.team.length);
+                
+                for (const { team, index } of teamOrder) {
+                    const hasConflict = team.some(member => areNoGo(person, member));
+                    if (!hasConflict) {
+                        teams[index].push(person);
+                        placed = true;
+                        break;
+                    }
+                }
+                
+                // If couldn't place without conflict, put in smallest team anyway
+                if (!placed) {
+                    const smallestIdx = teamOrder[0].index;
+                    teams[smallestIdx].push(person);
+                    console.warn(`Could not avoid conflict for ${person}`);
+                }
+            }
+
+            // Render teams
+            output.innerHTML = teams.map((team, i) => `
+                <div class="team-card">
+                    <h4>${prefix} ${i + 1}</h4>
+                    ${team.map(member => `<div class="team-member">${member}</div>`).join('')}
+                    <p class="text-muted text-sm mt-2">${team.length} members</p>
+                </div>
+            `).join('');
+
+            // Save teams to localStorage for scoring page
+            const teamsData = teams.map((members, i) => ({
+                name: `${prefix} ${i + 1}`,
+                members: members
+            }));
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teamsData));
+        }
+
+        function clearAll() {
+            participants = [];
+            noGoes = [];
+            updateParticipantDisplay();
+            updateNoGoDisplay();
+            document.getElementById('teamsOutput').innerHTML = '';
+        }
+
+
+    </script>
+</body>
+</html>

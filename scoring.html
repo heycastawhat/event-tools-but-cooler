@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <title>Scoring - Event Tools</title>
+</head>
+<body>
+    <div class="container" style="padding: 1rem; max-width: 600px;">
+        <header class="flex items-center justify-between mb-4">
+            <h1 style="font-size: 1.5rem;">Scoring</h1>
+            <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Back</button>
+        </header>
+
+        <div class="card mb-4">
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <h3 style="font-size: 1rem;">Teams</h3>
+                    <button class="btn btn-ghost" onclick="addTeam()">+ Add</button>
+                </div>
+                <button class="btn btn-secondary" id="importBtn" onclick="importFromTeamGen()" style="width: 100%;">Import from Team Generator</button>
+            </div>
+            <div id="noTeams" class="text-muted text-center" style="padding: 1.5rem;">
+                No teams yet. Import or add manually.
+            </div>
+        </div>
+
+        <div id="scoreboard" class="scoreboard-grid"></div>
+
+        <div id="actionsBar" class="actions-bar" style="display: none;">
+            <button class="btn btn-ghost action-btn" id="undoBtn" onclick="undo()" style="display: none;">↩ Undo</button>
+            <button class="btn btn-primary action-btn" onclick="addRound()">+ Round</button>
+            <button class="btn btn-secondary action-btn" id="removeRoundBtn" onclick="removeRound()">− Round</button>
+            <button class="btn btn-secondary action-btn" onclick="resetScores()">Reset</button>
+            <button class="btn btn-ghost action-btn" onclick="clearAll()">Clear</button>
+        </div>
+    </div>
+
+    <style>
+        .scoreboard-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding-bottom: 5rem;
+        }
+        
+        .team-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            transition: all var(--transition);
+        }
+        
+        .team-card.leader {
+            border-color: var(--success);
+            background: rgba(63, 185, 80, 0.08);
+        }
+        
+        .team-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        
+        .team-name-input {
+            background: transparent;
+            border: none;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            padding: 0;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .team-name-input:focus {
+            outline: none;
+            border-bottom: 1px solid var(--accent);
+        }
+        
+        .team-total {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-left: 0.5rem;
+        }
+        
+        .team-card.leader .team-total {
+            color: var(--success);
+        }
+        
+        .rounds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 0.5rem;
+        }
+        
+        .round-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .round-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .round-input {
+            width: 100%;
+            text-align: center;
+            padding: 0.75rem 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: var(--radius-md);
+        }
+        
+        .remove-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            font-size: 1.25rem;
+            line-height: 1;
+            margin-left: 0.5rem;
+        }
+        
+        .remove-btn:hover {
+            color: var(--error);
+        }
+        
+        .actions-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .action-btn {
+            flex: 1;
+            max-width: 120px;
+            padding: 0.75rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .no-rounds-msg {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+        }
+        
+        .rank-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 9999px;
+            color: var(--text-muted);
+            margin-right: 0.5rem;
+        }
+        
+        .team-card.leader .rank-badge {
+            background: var(--success);
+            color: #fff;
+        }
+    </style>
+
+    <script>
+        let teams = [];
+        let rounds = 0;
+        let undoStack = [];
+        const MAX_UNDO = 20;
+
+        function saveState() {
+            undoStack.push(JSON.stringify({ teams: JSON.parse(JSON.stringify(teams)), rounds }));
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
+            updateUndoButton();
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            const state = JSON.parse(undoStack.pop());
+            teams = state.teams;
+            rounds = state.rounds;
+            save();
+            render();
+            updateUndoButton();
+        }
+
+        function updateUndoButton() {
+            const btn = document.getElementById('undoBtn');
+            if (btn) btn.style.display = undoStack.length > 0 ? 'block' : 'none';
+        }
+
+        function init() {
+            const saved = localStorage.getItem('eventToolsScoring');
+            if (saved) {
+                const data = JSON.parse(saved);
+                teams = data.teams || [];
+                rounds = data.rounds || 0;
+            }
+            render();
+        }
+
+        function save() {
+            localStorage.setItem('eventToolsScoring', JSON.stringify({ teams, rounds }));
+        }
+
+        function importFromTeamGen() {
+            const savedTeams = localStorage.getItem('eventToolsTeams');
+            if (!savedTeams) {
+                alert('No teams found! Generate teams in Team Generator first.');
+                return;
+            }
+            
+            const teamsData = JSON.parse(savedTeams);
+            teams = teamsData.map(t => ({
+                name: t.name,
+                scores: Array(rounds).fill(0)
+            }));
+            save();
+            render();
+        }
+
+        function addTeam() {
+            saveState();
+            teams.push({
+                name: `Team ${teams.length + 1}`,
+                scores: Array(rounds).fill(0)
+            });
+            save();
+            render();
+        }
+
+        function removeTeam(index) {
+            if (confirm(`Remove ${teams[index].name}?`)) {
+                saveState();
+                teams.splice(index, 1);
+                save();
+                render();
+            }
+        }
+
+        function updateTeamName(index, name) {
+            saveState();
+            teams[index].name = name;
+            save();
+        }
+
+        function updateScore(teamIndex, roundIndex, value) {
+            saveState();
+            teams[teamIndex].scores[roundIndex] = parseInt(value) || 0;
+            save();
+            render();
+        }
+
+        function addRound() {
+            saveState();
+            rounds++;
+            teams.forEach(team => team.scores.push(0));
+            save();
+            render();
+        }
+
+        function removeRound() {
+            if (rounds > 0) {
+                saveState();
+                rounds--;
+                teams.forEach(team => team.scores.pop());
+                save();
+                render();
+            }
+        }
+
+        function resetScores() {
+            if (confirm('Reset all scores to 0?')) {
+                saveState();
+                teams.forEach(team => {
+                    team.scores = team.scores.map(() => 0);
+                });
+                save();
+                render();
+            }
+        }
+
+        function clearAll() {
+            if (confirm('Clear all teams and scores?')) {
+                teams = [];
+                rounds = 0;
+                localStorage.removeItem('eventToolsScoring');
+                render();
+            }
+        }
+
+        function getTotal(team) {
+            return team.scores.reduce((sum, s) => sum + s, 0);
+        }
+
+        function render() {
+            const scoreboard = document.getElementById('scoreboard');
+            const noTeams = document.getElementById('noTeams');
+            const actionsBar = document.getElementById('actionsBar');
+            const importBtn = document.getElementById('importBtn');
+
+            const hasTeamGenTeams = !!localStorage.getItem('eventToolsTeams');
+            importBtn.style.display = hasTeamGenTeams ? 'block' : 'none';
+
+            if (teams.length === 0) {
+                noTeams.style.display = 'block';
+                scoreboard.innerHTML = '';
+                actionsBar.style.display = 'none';
+                return;
+            }
+
+            noTeams.style.display = 'none';
+            actionsBar.style.display = 'flex';
+            
+            const removeRoundBtn = document.getElementById('removeRoundBtn');
+            removeRoundBtn.style.display = rounds > 0 ? 'block' : 'none';
+
+            // Sort teams by score for ranking
+            const sortedTeams = teams.map((t, i) => ({ ...t, originalIndex: i, total: getTotal(t) }))
+                .sort((a, b) => b.total - a.total);
+            
+            const maxScore = sortedTeams[0]?.total || 0;
+
+            // Render team cards
+            scoreboard.innerHTML = teams.map((team, i) => {
+                const total = getTotal(team);
+                const isLeader = total === maxScore && total > 0;
+                const rank = sortedTeams.findIndex(t => t.originalIndex === i) + 1;
+                
+                return `
+                    <div class="team-card ${isLeader ? 'leader' : ''}">
+                        <div class="team-header">
+                            <span class="rank-badge">#${rank}</span>
+                            <input type="text" class="team-name-input" value="${team.name}" 
+                                onchange="updateTeamName(${i}, this.value)">
+                            <span class="team-total">${total}</span>
+                            <button class="remove-btn" onclick="removeTeam(${i})">&times;</button>
+                        </div>
+                        ${rounds > 0 ? `
+                            <div class="rounds-grid">
+                                ${team.scores.map((score, r) => `
+                                    <div class="round-item">
+                                        <span class="round-label">R${r + 1}</span>
+                                        <input type="number" class="round-input" value="${score}" 
+                                            onchange="updateScore(${i}, ${r}, this.value)">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : `
+                            <div class="no-rounds-msg">Tap "+ Round" to start scoring</div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        init();
+    </script>
+</body>
+</html>

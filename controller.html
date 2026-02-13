@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <script src="sync.js"></script>
+    <title>Controller - Event Tools</title>
+</head>
+<body>
+    <div class="container" style="padding: 1rem; max-width: 600px;">
+        <header class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <h1 style="font-size: 1.5rem; margin: 0;">Controller</h1>
+                <span id="statusDot" class="status-dot disconnected" title="Display not connected"></span>
+            </div>
+            <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Back</button>
+        </header>
+
+        <div class="scene-switcher mb-4">
+            <button class="scene-btn" data-scene="welcome" onclick="switchScene('welcome')">Welcome</button>
+            <button class="scene-btn" data-scene="scoreboard" onclick="switchScene('scoreboard')">Scoreboard</button>
+            <button class="scene-btn" data-scene="timer" onclick="switchScene('timer')">Timer</button>
+            <button class="scene-btn" data-scene="picker" onclick="switchScene('picker')">Picker</button>
+            <button class="scene-btn" data-scene="schedule" onclick="switchScene('schedule')">Schedule</button>
+            <button class="scene-btn" data-scene="message" onclick="switchScene('message')">Message</button>
+            <button class="scene-btn" data-scene="slides" onclick="switchScene('slides')">Slides</button>
+            <button class="scene-btn" data-scene="waiting" onclick="switchScene('waiting')">Waiting</button>
+            <button class="scene-btn" data-scene="blank" onclick="switchScene('blank')">Blank</button>
+        </div>
+
+        <div id="controls-scoreboard" class="scene-controls" style="display: none;">
+            <div class="card">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Scoreboard Controls</h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-primary" onclick="sendCommand('refresh-scores')" style="flex: 1;">Refresh Scores</button>
+                    <button class="btn btn-secondary" onclick="window.open('scoring.html', '_blank')" style="flex: 1;">Edit Scores</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-timer" class="scene-controls" style="display: none;">
+            <div class="card mb-4">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Timer Controls</h3>
+                <div class="mode-toggle mb-4">
+                    <button class="mode-btn active" id="modeStopwatch" onclick="setTimerMode('stopwatch')">Stopwatch</button>
+                    <button class="mode-btn" id="modeCountdown" onclick="setTimerMode('countdown')">Countdown</button>
+                </div>
+                <div id="countdownSetup" style="display: none;">
+                    <div class="time-inputs mb-2">
+                        <div class="time-input-group">
+                            <input type="number" id="ctrlHours" value="0" min="0" max="99">
+                            <span>hrs</span>
+                        </div>
+                        <div class="time-input-group">
+                            <input type="number" id="ctrlMinutes" value="5" min="0" max="59">
+                            <span>min</span>
+                        </div>
+                        <div class="time-input-group">
+                            <input type="number" id="ctrlSeconds" value="0" min="0" max="59">
+                            <span>sec</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mb-4" style="flex-wrap: wrap; justify-content: center;">
+                        <button class="btn btn-secondary" onclick="setTimerPreset(1)">1 min</button>
+                        <button class="btn btn-secondary" onclick="setTimerPreset(3)">3 min</button>
+                        <button class="btn btn-secondary" onclick="setTimerPreset(5)">5 min</button>
+                        <button class="btn btn-secondary" onclick="setTimerPreset(10)">10 min</button>
+                    </div>
+                    <button class="btn btn-primary mb-4" onclick="sendTimerSet()" style="width: 100%;">Set Time</button>
+                </div>
+                <div class="flex gap-2">
+                    <button class="btn btn-primary" id="timerStartBtn" onclick="toggleTimer()" style="flex: 1; padding: 1rem;">Start</button>
+                    <button class="btn btn-secondary" onclick="sendCommand('timer-reset')" style="flex: 1; padding: 1rem;">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-picker" class="scene-controls" style="display: none;">
+            <div class="card mb-4">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Picker Controls</h3>
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" id="pickerUseTeamGen" onchange="togglePickerSource()" checked>
+                    <label for="pickerUseTeamGen" style="margin: 0;">Use Team Generator participants</label>
+                </div>
+                <div id="pickerManualEntry" style="display: none;">
+                    <textarea id="pickerNames" placeholder="Enter names, one per line" rows="4" style="resize: vertical;"></textarea>
+                </div>
+                <div class="flex items-center gap-2 mb-4 mt-2">
+                    <input type="checkbox" id="pickerRemoveAfter">
+                    <label for="pickerRemoveAfter" style="margin: 0;">Remove after picking</label>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <button class="btn btn-primary" onclick="pickerSpin()" style="flex: 1;">Load & Spin</button>
+                    <button class="btn btn-secondary" onclick="sendCommand('pick-reveal')" style="flex: 1;">Reveal Winner</button>
+                </div>
+                <div id="pickerPoolDisplay" class="mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm" style="font-weight: 600;">Pool <span class="text-muted">(<span id="pickerPoolCount">0</span>)</span></span>
+                    </div>
+                    <div id="pickerPoolList" class="pool-tags"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-schedule" class="scene-controls" style="display: none;">
+            <div class="card">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Schedule Controls</h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-primary" onclick="sendCommand('refresh-schedule')" style="flex: 1;">Refresh</button>
+                    <button class="btn btn-secondary" onclick="window.open('schedule.html', '_blank')" style="flex: 1;">Edit Schedule</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls-message" class="scene-controls" style="display: none;">
+            <div class="card">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Message Controls</h3>
+                <div class="mb-2">
+                    <label for="messageText">Message</label>
+                    <textarea id="messageText" placeholder="Type your message here..." rows="4" style="resize: vertical;"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="messageSubtitle">Subtitle (optional)</label>
+                    <input type="text" id="messageSubtitle" placeholder="Optional subtitle...">
+                </div>
+                <button class="btn btn-primary" onclick="showMessage()" style="width: 100%;">Show on Screen</button>
+            </div>
+        </div>
+
+        <div id="controls-slides" class="scene-controls" style="display: none;">
+            <div class="card mb-4">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Slides Controls</h3>
+
+                <div id="slidesFileList" class="slides-file-list mb-4">
+                    <div class="text-muted text-sm text-center" style="padding: 1rem;">Loading files...</div>
+                </div>
+
+                <div class="flex gap-2 mb-4">
+                    <button class="btn btn-secondary" onclick="loadAssetFiles()" style="flex: 1;">Refresh Files</button>
+                    <button class="btn btn-primary" onclick="loadSelectedSlides()" style="flex: 1;">Load Slides</button>
+                </div>
+
+                <div id="slidesNav" style="display: none;">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm" style="font-weight: 600;">Now Showing</span>
+                        <span class="text-muted text-sm" id="ctrlSlideCounter">0 / 0</span>
+                    </div>
+                    <div class="flex gap-2 mb-2">
+                        <button class="btn btn-secondary" onclick="sendCommand('slides-prev')" style="flex: 1; padding: 1rem; font-size: 1.25rem;">← Prev</button>
+                        <button class="btn btn-secondary" onclick="sendCommand('slides-next')" style="flex: 1; padding: 1rem; font-size: 1.25rem;">Next →</button>
+                    </div>
+                    <div id="slidesVideoControls" style="display: none;" class="flex gap-2 mb-2">
+                        <button class="btn btn-secondary" onclick="sendCommand('slides-video-play')" style="flex: 1;">▶ Play</button>
+                        <button class="btn btn-secondary" onclick="sendCommand('slides-video-pause')" style="flex: 1;">⏸ Pause</button>
+                    </div>
+                    <div id="slidesThumbnails" class="slides-thumbs"></div>
+                </div>
+
+                <p class="text-muted text-sm mt-4">Drop images, videos, or PDFs into the <code>assets/</code> folder, then refresh.</p>
+            </div>
+        </div>
+
+        <div class="bottom-bar mt-4">
+            <button class="btn btn-secondary attention-btn" onclick="playAttentionAll()">Attention</button>
+            <div class="flex gap-2 items-center mt-4">
+                <label for="eventNameInput" style="margin: 0; white-space: nowrap;">Event Name</label>
+                <input type="text" id="eventNameInput" placeholder="My Event" oninput="saveEventName()">
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="flex items-center justify-between" onclick="toggleCustomize()" style="cursor: pointer;">
+                <h3 style="font-size: 1rem; margin: 0;">Customize Display</h3>
+                <span id="customizeIcon" class="text-muted">▼</span>
+            </div>
+            <div id="customizeContent" style="display: none;" class="mt-2">
+                <div class="customize-options">
+                    <div class="customize-group">
+                        <label>Accent Color</label>
+                        <div class="color-options">
+                            <button class="color-swatch" style="background: #58a6ff;" onclick="setDisplayAccent('#58a6ff')" data-color="#58a6ff"></button>
+                            <button class="color-swatch" style="background: #f78166;" onclick="setDisplayAccent('#f78166')" data-color="#f78166"></button>
+                            <button class="color-swatch" style="background: #a371f7;" onclick="setDisplayAccent('#a371f7')" data-color="#a371f7"></button>
+                            <button class="color-swatch" style="background: #3fb950;" onclick="setDisplayAccent('#3fb950')" data-color="#3fb950"></button>
+                            <button class="color-swatch" style="background: #f0883e;" onclick="setDisplayAccent('#f0883e')" data-color="#f0883e"></button>
+                            <button class="color-swatch" style="background: #db61a2;" onclick="setDisplayAccent('#db61a2')" data-color="#db61a2"></button>
+                        </div>
+                    </div>
+                    <div class="customize-group">
+                        <label>Theme</label>
+                        <div class="theme-options">
+                            <button class="btn btn-secondary theme-btn" onclick="setDisplayTheme('dark')" data-theme="dark">Dark</button>
+                            <button class="btn btn-secondary theme-btn" onclick="setDisplayTheme('light')" data-theme="light">Light</button>
+                        </div>
+                    </div>
+                    <div class="customize-group">
+                        <label>Font Size</label>
+                        <div class="font-size-options">
+                            <button class="btn btn-secondary font-size-btn" onclick="setDisplayFontSize('small')" data-size="small">Small</button>
+                            <button class="btn btn-secondary font-size-btn" onclick="setDisplayFontSize('medium')" data-size="medium">Medium</button>
+                            <button class="btn btn-secondary font-size-btn" onclick="setDisplayFontSize('large')" data-size="large">Large</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        .container {
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 6px var(--success);
+        }
+
+        .status-dot.disconnected {
+            background: var(--text-muted);
+        }
+
+        .scene-switcher {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .scene-switcher::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scene-btn {
+            flex-shrink: 0;
+            padding: 0.625rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+
+        .scene-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .scene-btn:not(.active):hover {
+            background: var(--bg-hover);
+            border-color: var(--text-muted);
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 0.25rem;
+            gap: 0.25rem;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 0.625rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition);
+            font-size: 0.875rem;
+        }
+
+        .mode-btn.active {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .time-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .time-input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .time-input-group input {
+            width: 65px;
+            text-align: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            padding: 0.625rem;
+        }
+
+        .time-input-group span {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .pool-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+        }
+
+        .pool-tag {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+        }
+
+        .card {
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
+        textarea, input[type="text"], input[type="number"] {
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+
+        .flex {
+            min-width: 0;
+        }
+
+        .attention-btn {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .bottom-bar {
+            padding-bottom: 2rem;
+        }
+
+        #timerStartBtn.running {
+            background: var(--error);
+            border-color: var(--error);
+        }
+
+        #timerStartBtn.running:hover {
+            background: #e03e3e;
+        }
+
+        .customize-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            text-align: left;
+        }
+
+        .customize-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .color-options {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch.active {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 0 2px var(--bg-secondary);
+        }
+
+        .font-size-options,
+        .theme-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .font-size-btn.active,
+        .theme-btn.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .slides-file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .slides-file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .slides-file-item:hover {
+            border-color: var(--accent);
+        }
+
+        .slides-file-item.selected {
+            border-color: var(--accent);
+            background: var(--accent-subtle);
+        }
+
+        .slides-file-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .slides-file-name {
+            flex: 1;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .slides-file-type {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .slides-thumbs {
+            display: flex;
+            gap: 0.375rem;
+            overflow-x: auto;
+            padding: 0.5rem 0;
+            scrollbar-width: none;
+        }
+
+        .slides-thumbs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .slides-thumb {
+            width: 48px;
+            height: 36px;
+            border-radius: 4px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+            object-fit: cover;
+            transition: border-color 0.2s ease;
+        }
+
+        .slides-thumb.active {
+            border-color: var(--accent);
+        }
+
+        .slides-thumb-placeholder {
+            width: 48px;
+            height: 36px;
+            border-radius: 4px;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            transition: border-color 0.2s ease;
+        }
+
+        .slides-thumb-placeholder.active {
+            border-color: var(--accent);
+            background: var(--accent-subtle);
+        }
+    </style>
+
+    <script>
+        let activeScene = 'standby';
+        let timerMode = 'stopwatch';
+        let timerRunning = false;
+        let pickerPool = [];
+        let assetFiles = [];
+        let loadedSlides = [];
+        let currentSlideIndex = 0;
+
+        function switchScene(scene) {
+            activeScene = scene;
+            sendCommand('show-scene', { scene });
+
+            document.querySelectorAll('.scene-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.scene === scene);
+            });
+
+            document.querySelectorAll('.scene-controls').forEach(el => {
+                el.style.display = 'none';
+            });
+            const controls = document.getElementById('controls-' + scene);
+            if (controls) controls.style.display = 'block';
+
+            if (scene === 'picker') loadPickerPool();
+            if (scene === 'slides') loadAssetFiles();
+        }
+
+        // Connection status — polls /api/clients to see if the display SSE stream is connected
+        function checkConnection() {
+            fetch('/api/clients').then(r => r.json()).then(data => {
+                // At least 2 means both controller and display are listening
+                const connected = data.count >= 2;
+                const dot = document.getElementById('statusDot');
+                dot.classList.toggle('connected', connected);
+                dot.classList.toggle('disconnected', !connected);
+                dot.title = connected ? 'Display connected' : 'Display not connected';
+            }).catch(() => {});
+        }
+
+        setInterval(checkConnection, 3000);
+        checkConnection();
+
+        // Timer controls
+        function setTimerMode(mode) {
+            timerMode = mode;
+            sendCommand('timer-mode', { mode });
+            document.getElementById('modeStopwatch').classList.toggle('active', mode === 'stopwatch');
+            document.getElementById('modeCountdown').classList.toggle('active', mode === 'countdown');
+            document.getElementById('countdownSetup').style.display = mode === 'countdown' ? 'block' : 'none';
+        }
+
+        function setTimerPreset(minutes) {
+            document.getElementById('ctrlHours').value = 0;
+            document.getElementById('ctrlMinutes').value = minutes;
+            document.getElementById('ctrlSeconds').value = 0;
+        }
+
+        function sendTimerSet() {
+            const h = parseInt(document.getElementById('ctrlHours').value) || 0;
+            const m = parseInt(document.getElementById('ctrlMinutes').value) || 0;
+            const s = parseInt(document.getElementById('ctrlSeconds').value) || 0;
+            sendCommand('timer-set', { hours: h, minutes: m, seconds: s });
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('timerStartBtn');
+            if (timerRunning) {
+                sendCommand('timer-stop');
+                btn.textContent = 'Start';
+                btn.classList.remove('running');
+                timerRunning = false;
+            } else {
+                if (timerMode === 'countdown') sendTimerSet();
+                sendCommand('timer-start');
+                btn.textContent = 'Stop';
+                btn.classList.add('running');
+                timerRunning = true;
+            }
+        }
+
+        // Picker controls
+        function togglePickerSource() {
+            const useTeamGen = document.getElementById('pickerUseTeamGen').checked;
+            document.getElementById('pickerManualEntry').style.display = useTeamGen ? 'none' : 'block';
+            loadPickerPool();
+        }
+
+        function loadPickerPool() {
+            const useTeamGen = document.getElementById('pickerUseTeamGen').checked;
+            if (useTeamGen) {
+                const saved = localStorage.getItem('eventToolsTeams');
+                if (saved) {
+                    const teams = JSON.parse(saved);
+                    pickerPool = teams.flatMap(t => t.members);
+                } else {
+                    pickerPool = [];
+                }
+            } else {
+                const input = document.getElementById('pickerNames').value;
+                pickerPool = input.split('\n').map(n => n.trim()).filter(n => n);
+            }
+            renderPickerPool();
+        }
+
+        function renderPickerPool() {
+            document.getElementById('pickerPoolCount').textContent = pickerPool.length;
+            const list = document.getElementById('pickerPoolList');
+            if (pickerPool.length === 0) {
+                list.innerHTML = '<span class="text-muted text-sm">No participants loaded</span>';
+            } else {
+                list.innerHTML = pickerPool.map(name =>
+                    `<span class="pool-tag">${name}</span>`
+                ).join('');
+            }
+        }
+
+        function pickerSpin() {
+            loadPickerPool();
+            if (pickerPool.length === 0) return;
+            sendCommand('pick-start', {
+                pool: pickerPool,
+                removeAfter: document.getElementById('pickerRemoveAfter').checked
+            });
+        }
+
+        // Message controls
+        function showMessage() {
+            const text = document.getElementById('messageText').value.trim();
+            const subtitle = document.getElementById('messageSubtitle').value.trim();
+            if (!text) return;
+            sendCommand('show-message', { text, subtitle });
+        }
+
+        // Attention
+        function playAttentionAll() {
+            sendCommand('play-attention');
+            playAttentionSound();
+        }
+
+        function playAttentionSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'sine';
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                }, i * 400);
+            }
+            if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200, 100, 200]);
+            }
+        }
+
+        // Customization
+        function toggleCustomize() {
+            const content = document.getElementById('customizeContent');
+            const icon = document.getElementById('customizeIcon');
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            icon.textContent = isHidden ? '▲' : '▼';
+        }
+
+        function setDisplayAccent(color) {
+            sendCommand('set-accent', { color });
+            document.querySelectorAll('.color-swatch').forEach(el => {
+                el.classList.toggle('active', el.dataset.color === color);
+            });
+        }
+
+        function setDisplayTheme(theme) {
+            sendCommand('set-theme', { theme });
+            document.querySelectorAll('.theme-btn').forEach(el => {
+                el.classList.toggle('active', el.dataset.theme === theme);
+            });
+        }
+
+        function setDisplayFontSize(size) {
+            sendCommand('set-font-size', { size });
+            document.querySelectorAll('.font-size-btn').forEach(el => {
+                el.classList.toggle('active', el.dataset.size === size);
+            });
+        }
+
+        // Event name
+        function saveEventName() {
+            const name = document.getElementById('eventNameInput').value;
+            localStorage.setItem('eventToolsEventName', name);
+            sendCommand('set-event-name', { name });
+        }
+
+        // Slides controls
+        function loadAssetFiles() {
+            fetch('/api/files').then(r => r.json()).then(files => {
+                assetFiles = files.filter(f => f.type === 'image' || f.type === 'video' || f.type === 'pdf');
+                renderFileList();
+            }).catch(() => {
+                document.getElementById('slidesFileList').innerHTML =
+                    '<div class="text-muted text-sm text-center" style="padding: 1rem;">Could not load files</div>';
+            });
+        }
+
+        function renderFileList() {
+            const list = document.getElementById('slidesFileList');
+            if (assetFiles.length === 0) {
+                list.innerHTML = '<div class="text-muted text-sm text-center" style="padding: 1rem;">No files in assets/ folder</div>';
+                return;
+            }
+
+            list.innerHTML = '<label class="slides-file-item" style="background: var(--bg-secondary);">' +
+                '<input type="checkbox" id="selectAllFiles" onchange="toggleSelectAll()"> ' +
+                '<span class="slides-file-name" style="font-weight: 600;">Select All</span></label>' +
+                assetFiles.map((f, i) =>
+                    '<label class="slides-file-item">' +
+                    '<input type="checkbox" class="slide-checkbox" data-index="' + i + '" checked> ' +
+                    '<span class="slides-file-name">' + f.name + '</span>' +
+                    '<span class="slides-file-type">' + f.type + '</span>' +
+                    '</label>'
+                ).join('');
+
+            document.getElementById('selectAllFiles').checked = true;
+        }
+
+        function toggleSelectAll() {
+            const checked = document.getElementById('selectAllFiles').checked;
+            document.querySelectorAll('.slide-checkbox').forEach(cb => cb.checked = checked);
+        }
+
+        function loadSelectedSlides() {
+            const checkboxes = document.querySelectorAll('.slide-checkbox:checked');
+            loadedSlides = Array.from(checkboxes).map(cb => assetFiles[parseInt(cb.dataset.index)]);
+
+            if (loadedSlides.length === 0) return;
+
+            currentSlideIndex = 0;
+            sendCommand('slides-load', { files: loadedSlides });
+            sendCommand('show-scene', { scene: 'slides' });
+
+            document.getElementById('slidesNav').style.display = 'block';
+            updateSlideControls();
+        }
+
+        function updateSlideControls() {
+            document.getElementById('ctrlSlideCounter').textContent =
+                (currentSlideIndex + 1) + ' / ' + loadedSlides.length;
+
+            const current = loadedSlides[currentSlideIndex];
+            document.getElementById('slidesVideoControls').style.display =
+                current && current.type === 'video' ? 'flex' : 'none';
+
+            renderSlideThumbnails();
+        }
+
+        function renderSlideThumbnails() {
+            const container = document.getElementById('slidesThumbnails');
+            container.innerHTML = loadedSlides.map((f, i) => {
+                if (f.type === 'image') {
+                    return '<img class="slides-thumb ' + (i === currentSlideIndex ? 'active' : '') +
+                        '" src="' + f.path + '" onclick="goToSlide(' + i + ')">';
+                }
+                const icon = f.type === 'video' ? '▶' : 'PDF';
+                return '<div class="slides-thumb-placeholder ' + (i === currentSlideIndex ? 'active' : '') +
+                    '" onclick="goToSlide(' + i + ')">' + icon + '</div>';
+            }).join('');
+        }
+
+        function goToSlide(index) {
+            currentSlideIndex = index;
+            sendCommand('slides-goto', { index: index });
+            updateSlideControls();
+        }
+
+        // Init
+        onCommand(function(type, data) {
+            if (type === 'slides-next' && loadedSlides.length > 0) {
+                if (currentSlideIndex < loadedSlides.length - 1) currentSlideIndex++;
+                updateSlideControls();
+            }
+            if (type === 'slides-prev' && loadedSlides.length > 0) {
+                if (currentSlideIndex > 0) currentSlideIndex--;
+                updateSlideControls();
+            }
+        });
+
+        function init() {
+            const savedName = localStorage.getItem('eventToolsEventName');
+            if (savedName) document.getElementById('eventNameInput').value = savedName;
+            loadPickerPool();
+        }
+
+        init();
+    </script>
+</body>
+</html>

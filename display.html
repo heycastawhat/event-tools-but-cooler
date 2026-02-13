@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <script src="sync.js"></script>
+    <title>Display - Event Tools</title>
+</head>
+<body>
+
+    <div id="scene-standby" class="scene active">
+        <div class="standby-content">
+            <div class="standby-text">Waiting for controller...</div>
+            <div class="standby-dots"><span></span><span></span><span></span></div>
+        </div>
+    </div>
+
+    <div id="scene-welcome" class="scene">
+        <div class="welcome-bg"></div>
+        <div class="welcome-content">
+            <div class="welcome-title" id="welcomeTitle">Event Tools</div>
+        </div>
+    </div>
+
+    <div id="scene-scoreboard" class="scene">
+        <div class="scene-label">Leaderboard</div>
+        <div id="scoreboardList" class="scoreboard-list"></div>
+    </div>
+
+    <div id="scene-timer" class="scene">
+        <div class="timer-wrap">
+            <div class="timer-mode-label" id="timerModeLabel">Stopwatch</div>
+            <div class="timer-digits" id="timerDigits">00:00:00</div>
+        </div>
+    </div>
+
+    <div id="scene-picker" class="scene">
+        <div class="picker-wrap">
+            <div class="picker-label">Random Pick</div>
+            <div class="picker-window">
+                <div class="picker-reel" id="pickerReel"></div>
+            </div>
+            <div class="picker-winner" id="pickerWinner"></div>
+        </div>
+        <div class="picker-confetti" id="pickerConfetti"></div>
+    </div>
+
+    <div id="scene-schedule" class="scene">
+        <div class="scene-label">Schedule</div>
+        <div id="scheduleTimeline" class="schedule-timeline"></div>
+    </div>
+
+    <div id="scene-message" class="scene">
+        <div class="message-wrap">
+            <div class="message-text" id="messageText"></div>
+            <div class="message-subtitle" id="messageSubtitle"></div>
+        </div>
+    </div>
+
+    <div id="scene-blank" class="scene"></div>
+
+    <div id="scene-waiting" class="scene">
+        <div class="waiting-wrap">
+            <div class="waiting-label">Time Wasted</div>
+            <div class="waiting-time" id="waitingTime">00:00</div>
+            <div class="waiting-sub" id="waitingSub"></div>
+        </div>
+    </div>
+
+    <div id="scene-slides" class="scene">
+        <div class="slides-counter" id="slidesCounter"></div>
+        <div class="slides-content" id="slidesContent">
+            <div class="slides-empty">No slides loaded</div>
+        </div>
+    </div>
+
+    <div class="attention-flash" id="attentionFlash"></div>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            background: var(--bg-primary);
+        }
+
+        .scene.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .scene-label {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        /* Welcome */
+        .welcome-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 25%, #1a1e2e 50%, #161b22 75%, #0d1117 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 12s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .welcome-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .welcome-title {
+            font-size: 6rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.1;
+            text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Scoreboard */
+        #scene-scoreboard {
+            padding: 5rem 4rem 3rem;
+            justify-content: flex-start;
+        }
+
+        .scoreboard-list {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
+            padding: 1rem 0;
+        }
+
+        .sb-row {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.25rem 2rem;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            transition: all 0.4s ease;
+        }
+
+        .sb-row.leader {
+            border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.08);
+            transform: scale(1.03);
+        }
+
+        .sb-rank {
+            font-size: 2.5rem;
+            font-weight: 800;
+            min-width: 3.5rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .sb-row.leader .sb-rank {
+            color: #ffd700;
+        }
+
+        .sb-name {
+            flex: 1;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .sb-score {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            min-width: 5rem;
+            text-align: right;
+        }
+
+        .sb-row.leader .sb-score {
+            color: #ffd700;
+        }
+
+        /* Timer */
+        .timer-wrap {
+            text-align: center;
+        }
+
+        .timer-mode-label {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .timer-digits {
+            font-size: 12rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            color: var(--text-primary);
+            line-height: 1;
+            letter-spacing: 0.05em;
+        }
+
+        .timer-digits.danger {
+            color: var(--error);
+            animation: timerPulse 0.5s ease-in-out infinite alternate;
+        }
+
+        .timer-digits.warning {
+            color: var(--warning);
+        }
+
+        @keyframes timerPulse {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+
+        /* Picker */
+        .picker-wrap {
+            text-align: center;
+            z-index: 1;
+        }
+
+        .picker-label {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 2rem;
+        }
+
+        .picker-window {
+            width: 600px;
+            max-width: 80vw;
+            height: 8rem;
+            overflow: hidden;
+            position: relative;
+            border: 3px solid var(--border);
+            border-radius: var(--radius-lg);
+            background: var(--bg-secondary);
+            margin: 0 auto;
+        }
+
+        .picker-window::before,
+        .picker-window::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2.5rem;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .picker-window::before {
+            top: 0;
+            background: linear-gradient(to bottom, var(--bg-secondary), transparent);
+        }
+
+        .picker-window::after {
+            bottom: 0;
+            background: linear-gradient(to top, var(--bg-secondary), transparent);
+        }
+
+        .picker-reel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.08s linear;
+        }
+
+        .picker-reel-item {
+            height: 8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .picker-winner {
+            margin-top: 2rem;
+            font-size: 5rem;
+            font-weight: 800;
+            color: var(--success);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .picker-winner.revealed {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .picker-confetti {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 20px;
+            top: -20px;
+            animation: confettiFall linear forwards;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* Schedule */
+        #scene-schedule {
+            padding: 5rem 4rem 3rem;
+            justify-content: flex-start;
+        }
+
+        .schedule-timeline {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
+            padding: 1rem 0;
+        }
+
+        .sched-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 2rem;
+            padding: 1.25rem 0;
+            border-left: 4px solid var(--border);
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .sched-item::before {
+            content: '';
+            position: absolute;
+            left: -9px;
+            top: 1.5rem;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: 3px solid var(--border);
+        }
+
+        .sched-item.current {
+            border-left-color: var(--accent);
+            background: var(--accent-subtle);
+            margin-left: -1rem;
+            padding-left: 3rem;
+            border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+        }
+
+        .sched-item.current::before {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 6px var(--accent-subtle);
+        }
+
+        .sched-item.past {
+            opacity: 0.4;
+        }
+
+        .sched-item.past::before {
+            background: var(--text-muted);
+            border-color: var(--text-muted);
+        }
+
+        .sched-time {
+            min-width: 100px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .sched-item.current .sched-time {
+            color: var(--accent);
+        }
+
+        .sched-details {
+            flex: 1;
+        }
+
+        .sched-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .sched-item.current .sched-title {
+            color: var(--accent);
+        }
+
+        .sched-meta {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .sched-now-badge {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: var(--accent);
+            color: #fff;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-left: 0.75rem;
+            vertical-align: middle;
+        }
+
+        /* Message */
+        .message-wrap {
+            text-align: center;
+            padding: 2rem;
+            max-width: 90vw;
+        }
+
+        .message-text {
+            font-size: 5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .message-subtitle {
+            font-size: 2rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+        }
+
+        /* Standby */
+        .standby-content {
+            text-align: center;
+        }
+
+        .standby-text {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .standby-dots {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .standby-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: standbyPulse 1.4s infinite ease-in-out;
+        }
+
+        .standby-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .standby-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes standbyPulse {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Blank */
+        #scene-blank {
+            background: #000;
+        }
+
+        /* Waiting */
+        .waiting-wrap {
+            text-align: center;
+        }
+
+        .waiting-label {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .waiting-time {
+            font-size: 10rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .waiting-sub {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+        }
+
+        /* Attention flash */
+        .attention-flash {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.1s ease;
+        }
+
+        .attention-flash.active {
+            animation: flashAnim 0.6s ease-out;
+        }
+
+        @keyframes flashAnim {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        /* Slides */
+        .slides-counter {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            z-index: 2;
+        }
+
+        .slides-content {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .slides-content img {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        .slides-content video {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        .slides-empty {
+            font-size: 2rem;
+            color: var(--text-muted);
+        }
+    </style>
+
+    <script>
+        let currentScene = 'standby';
+        let timerMode = 'stopwatch';
+        let timerRunning = false;
+        let timerStartTime = 0;
+        let timerElapsed = 0;
+        let timerCountdownMs = 0;
+        let timerInterval = null;
+        let pickerPool = [];
+        let pickerSpinInterval = null;
+        let pickerWinner = null;
+        let waitingStartTime = null;
+        let waitingInterval = null;
+        let slidesFiles = [];
+        let slidesIndex = 0;
+
+        function init() {
+            const eventName = localStorage.getItem('eventToolsEventName') || 'Event Tools';
+            document.getElementById('welcomeTitle').textContent = eventName;
+            showScene('standby');
+        }
+
+        function showScene(scene) {
+            if (currentScene === 'waiting') stopWaiting();
+
+            document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById('scene-' + scene);
+            if (target) {
+                target.classList.add('active');
+                currentScene = scene;
+            }
+
+            if (scene === 'waiting') startWaiting();
+        }
+
+        // Timer
+        function formatTimerDisplay(ms) {
+            const totalSeconds = Math.floor(Math.abs(ms) / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return String(hours).padStart(2, '0') + ':' +
+                   String(minutes).padStart(2, '0') + ':' +
+                   String(seconds).padStart(2, '0');
+        }
+
+        function updateTimerDisplay() {
+            const el = document.getElementById('timerDigits');
+            let displayMs;
+
+            if (timerMode === 'stopwatch') {
+                displayMs = timerElapsed;
+                el.classList.remove('danger', 'warning');
+            } else {
+                displayMs = Math.max(0, timerCountdownMs - timerElapsed);
+                el.classList.remove('danger', 'warning');
+                if (displayMs <= 0) {
+                    el.classList.add('danger');
+                    if (timerRunning) {
+                        stopTimer();
+                        playAlarm();
+                    }
+                } else if (displayMs <= 10000) {
+                    el.classList.add('danger');
+                } else if (displayMs <= 30000) {
+                    el.classList.add('warning');
+                }
+            }
+
+            el.textContent = formatTimerDisplay(displayMs);
+        }
+
+        function timerTick() {
+            timerElapsed = Date.now() - timerStartTime;
+            updateTimerDisplay();
+        }
+
+        function startTimer() {
+            if (timerRunning) return;
+            timerRunning = true;
+            timerStartTime = Date.now() - timerElapsed;
+            timerInterval = setInterval(timerTick, 50);
+        }
+
+        function stopTimer() {
+            timerRunning = false;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function resetTimer() {
+            stopTimer();
+            timerElapsed = 0;
+            const el = document.getElementById('timerDigits');
+            el.classList.remove('danger', 'warning');
+            updateTimerDisplay();
+        }
+
+        function playAlarm() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const freqs = [880, 1100, 880, 1100, 880, 1100];
+                freqs.forEach((freq, i) => {
+                    setTimeout(() => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = freq;
+                        osc.type = 'square';
+                        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.2);
+                    }, i * 250);
+                });
+            } catch (e) {}
+        }
+
+        // Scoreboard
+        function renderScoreboard() {
+            const saved = localStorage.getItem('eventToolsScoring');
+            const list = document.getElementById('scoreboardList');
+            if (!saved) {
+                list.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;">No scores yet</div>';
+                return;
+            }
+
+            const data = JSON.parse(saved);
+            const teams = data.teams || [];
+            const sorted = teams.map(t => ({
+                name: t.name,
+                score: t.scores.reduce((a, b) => a + b, 0)
+            })).sort((a, b) => b.score - a.score);
+
+            const maxScore = sorted.length > 0 ? sorted[0].score : 0;
+
+            list.innerHTML = sorted.map((team, i) => {
+                const isLeader = team.score === maxScore && team.score > 0;
+                return `<div class="sb-row ${isLeader ? 'leader' : ''}">
+                    <div class="sb-rank">${i + 1}</div>
+                    <div class="sb-name">${escapeHtml(team.name)}</div>
+                    <div class="sb-score">${team.score}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // Schedule
+        function renderSchedule() {
+            const saved = localStorage.getItem('eventToolsSchedule');
+            const container = document.getElementById('scheduleTimeline');
+            if (!saved) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;">No events scheduled</div>';
+                return;
+            }
+
+            const events = JSON.parse(saved);
+            if (events.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;">No events scheduled</div>';
+                return;
+            }
+
+            const now = new Date();
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+            container.innerHTML = events.map(ev => {
+                const [startH, startM] = ev.time.split(':').map(Number);
+                const startMinutes = startH * 60 + startM;
+                const endMinutes = startMinutes + ev.duration;
+
+                let status = 'upcoming';
+                if (nowMinutes >= startMinutes && nowMinutes < endMinutes) status = 'current';
+                else if (nowMinutes >= endMinutes) status = 'past';
+
+                const h = startH % 12 || 12;
+                const ampm = startH >= 12 ? 'PM' : 'AM';
+                const timeStr = h + ':' + String(startM).padStart(2, '0') + ' ' + ampm;
+
+                return `<div class="sched-item ${status}">
+                    <div class="sched-time">${timeStr}</div>
+                    <div class="sched-details">
+                        <div class="sched-title">${escapeHtml(ev.title)}${status === 'current' ? '<span class="sched-now-badge">Now</span>' : ''}</div>
+                        <div class="sched-meta">${ev.location ? escapeHtml(ev.location) + ' · ' : ''}${ev.duration} min</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Picker
+        function startPicker(pool) {
+            pickerPool = pool;
+            pickerWinner = null;
+            const winnerEl = document.getElementById('pickerWinner');
+            winnerEl.classList.remove('revealed');
+            winnerEl.textContent = '';
+            document.getElementById('pickerConfetti').innerHTML = '';
+
+            const reel = document.getElementById('pickerReel');
+
+            if (pickerSpinInterval) clearInterval(pickerSpinInterval);
+
+            pickerSpinInterval = setInterval(() => {
+                const idx = Math.floor(Math.random() * pickerPool.length);
+                reel.innerHTML = '<div class="picker-reel-item">' + escapeHtml(pickerPool[idx]) + '</div>';
+            }, 80);
+        }
+
+        function revealPicker() {
+            if (pickerSpinInterval) {
+                clearInterval(pickerSpinInterval);
+                pickerSpinInterval = null;
+            }
+
+            if (pickerPool.length === 0) return;
+
+            const winnerIdx = Math.floor(Math.random() * pickerPool.length);
+            pickerWinner = pickerPool[winnerIdx];
+
+            const reel = document.getElementById('pickerReel');
+            reel.innerHTML = '<div class="picker-reel-item">' + escapeHtml(pickerWinner) + '</div>';
+
+            const winnerEl = document.getElementById('pickerWinner');
+            winnerEl.textContent = pickerWinner;
+            setTimeout(() => winnerEl.classList.add('revealed'), 50);
+
+            spawnConfetti();
+            playWinSound();
+        }
+
+        function spawnConfetti() {
+            const container = document.getElementById('pickerConfetti');
+            container.innerHTML = '';
+            const colors = ['#ffd700', '#ff6b6b', '#58a6ff', '#3fb950', '#f0883e', '#d2a8ff'];
+            for (let i = 0; i < 80; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+                piece.style.animationDelay = Math.random() * 0.5 + 's';
+                piece.style.width = (6 + Math.random() * 8) + 'px';
+                piece.style.height = (10 + Math.random() * 15) + 'px';
+                piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                container.appendChild(piece);
+            }
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        function playWinSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                [0, 100, 200].forEach((delay, i) => {
+                    setTimeout(() => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = 600 + (i * 200);
+                        osc.type = 'sine';
+                        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.15);
+                    }, delay);
+                });
+            } catch (e) {}
+        }
+
+        function playAttentionSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                [0, 150, 300].forEach((delay, i) => {
+                    setTimeout(() => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.frequency.value = 800;
+                        osc.type = 'triangle';
+                        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+                        osc.start(ctx.currentTime);
+                        osc.stop(ctx.currentTime + 0.12);
+                    }, delay);
+                });
+            } catch (e) {}
+        }
+
+        function flashAttention() {
+            const el = document.getElementById('attentionFlash');
+            el.classList.remove('active');
+            void el.offsetHeight;
+            el.classList.add('active');
+            setTimeout(() => el.classList.remove('active'), 700);
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Waiting timer
+        function startWaiting() {
+            waitingStartTime = Date.now();
+            if (waitingInterval) clearInterval(waitingInterval);
+            waitingInterval = setInterval(updateWaiting, 1000);
+            updateWaiting();
+        }
+
+        function stopWaiting() {
+            if (waitingInterval) {
+                clearInterval(waitingInterval);
+                waitingInterval = null;
+            }
+        }
+
+        function updateWaiting() {
+            if (!waitingStartTime) return;
+            const elapsed = Date.now() - waitingStartTime;
+            const totalSec = Math.floor(elapsed / 1000);
+            const min = Math.floor(totalSec / 60);
+            const sec = totalSec % 60;
+            document.getElementById('waitingTime').textContent =
+                String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+
+            const subs = [
+                "Still waiting...",
+                "Any day now...",
+                "Getting comfy?",
+                "Time is a social construct",
+                "Loading enthusiasm...",
+                "Buffering...",
+                "Are we there yet?",
+                "Patience is a virtue",
+                "Just a few more seconds...",
+                "Definitely not forgotten",
+                "This is fine.",
+                "Elevator music plays...",
+            ];
+            const subEl = document.getElementById('waitingSub');
+            if (totalSec > 0 && totalSec % 10 === 0) {
+                subEl.textContent = subs[Math.floor(Math.random() * subs.length)];
+            }
+            if (totalSec === 1) {
+                subEl.textContent = subs[0];
+            }
+        }
+
+        function loadSlide() {
+            const content = document.getElementById('slidesContent');
+            const counter = document.getElementById('slidesCounter');
+
+            if (slidesFiles.length === 0) {
+                content.innerHTML = '<div class="slides-empty">No slides loaded</div>';
+                counter.textContent = '';
+                return;
+            }
+
+            const file = slidesFiles[slidesIndex];
+            counter.textContent = (slidesIndex + 1) + ' / ' + slidesFiles.length;
+
+            if (file.type === 'image') {
+                content.innerHTML = '<img src="' + file.path + '" alt="' + escapeHtml(file.name) + '">';
+            } else if (file.type === 'video') {
+                content.innerHTML = '<video src="' + file.path + '" id="slideVideo" autoplay></video>';
+            } else if (file.type === 'pdf') {
+                content.innerHTML = '<iframe src="' + file.path + '" style="width:100vw;height:100vh;border:none;"></iframe>';
+            } else {
+                content.innerHTML = '<div class="slides-empty">' + escapeHtml(file.name) + '</div>';
+            }
+        }
+
+        // Command handler
+        onCommand(function(type, data) {
+            switch (type) {
+                case 'show-scene':
+                    showScene(data.scene);
+                    if (data.scene === 'scoreboard') renderScoreboard();
+                    if (data.scene === 'schedule') renderSchedule();
+                    break;
+
+                case 'timer-start':
+                    startTimer();
+                    break;
+
+                case 'timer-stop':
+                    stopTimer();
+                    break;
+
+                case 'timer-reset':
+                    resetTimer();
+                    break;
+
+                case 'timer-set':
+                    if (data.ms) {
+                        timerCountdownMs = data.ms;
+                    } else {
+                        const h = data.hours || 0;
+                        const m = data.minutes || 0;
+                        const s = data.seconds || 0;
+                        timerCountdownMs = (h * 3600 + m * 60 + s) * 1000;
+                    }
+                    timerElapsed = 0;
+                    updateTimerDisplay();
+                    break;
+
+                case 'timer-mode':
+                    timerMode = data.mode || 'stopwatch';
+                    document.getElementById('timerModeLabel').textContent =
+                        timerMode === 'countdown' ? 'Countdown' : 'Stopwatch';
+                    resetTimer();
+                    break;
+
+                case 'pick-start':
+                    startPicker(data.pool || []);
+                    break;
+
+                case 'pick-reveal':
+                    revealPicker();
+                    break;
+
+                case 'show-message':
+                    document.getElementById('messageText').textContent = data.text || '';
+                    document.getElementById('messageSubtitle').textContent = data.subtitle || '';
+                    showScene('message');
+                    break;
+
+                case 'refresh-scores':
+                    renderScoreboard();
+                    break;
+
+                case 'refresh-schedule':
+                    renderSchedule();
+                    break;
+
+                case 'play-attention':
+                    playAttentionSound();
+                    flashAttention();
+                    break;
+
+                case 'set-event-name':
+                    if (data.name) {
+                        localStorage.setItem('eventToolsEventName', data.name);
+                        document.getElementById('welcomeTitle').textContent = data.name;
+                    }
+                    break;
+
+                case 'set-theme':
+                    if (data.theme === 'light') {
+                        document.documentElement.style.setProperty('--bg-primary', '#ffffff');
+                        document.documentElement.style.setProperty('--bg-secondary', '#f6f8fa');
+                        document.documentElement.style.setProperty('--bg-tertiary', '#eaeef2');
+                        document.documentElement.style.setProperty('--text-primary', '#1f2328');
+                        document.documentElement.style.setProperty('--text-secondary', '#656d76');
+                        document.documentElement.style.setProperty('--text-muted', '#8b949e');
+                        document.documentElement.style.setProperty('--border', '#d0d7de');
+                    } else {
+                        document.documentElement.style.setProperty('--bg-primary', '#0d1117');
+                        document.documentElement.style.setProperty('--bg-secondary', '#161b22');
+                        document.documentElement.style.setProperty('--bg-tertiary', '#21262d');
+                        document.documentElement.style.setProperty('--text-primary', '#e6edf3');
+                        document.documentElement.style.setProperty('--text-secondary', '#8b949e');
+                        document.documentElement.style.setProperty('--text-muted', '#6e7681');
+                        document.documentElement.style.setProperty('--border', '#30363d');
+                    }
+                    break;
+
+                case 'set-accent':
+                    document.documentElement.style.setProperty('--accent', data.color);
+                    break;
+
+                case 'set-font-size':
+                    const sizes = { small: '14px', medium: '16px', large: '18px' };
+                    document.documentElement.style.setProperty('--base-font-size', sizes[data.size] || '16px');
+                    break;
+
+                case 'slides-load':
+                    slidesFiles = data.files || [];
+                    slidesIndex = 0;
+                    loadSlide();
+                    break;
+
+                case 'slides-goto':
+                    slidesIndex = data.index || 0;
+                    if (slidesIndex < 0) slidesIndex = 0;
+                    if (slidesIndex >= slidesFiles.length) slidesIndex = slidesFiles.length - 1;
+                    loadSlide();
+                    break;
+
+                case 'slides-next':
+                    if (slidesIndex < slidesFiles.length - 1) {
+                        slidesIndex++;
+                        loadSlide();
+                    }
+                    break;
+
+                case 'slides-prev':
+                    if (slidesIndex > 0) {
+                        slidesIndex--;
+                        loadSlide();
+                    }
+                    break;
+
+                case 'slides-video-play':
+                    var v = document.getElementById('slideVideo');
+                    if (v) v.play();
+                    break;
+
+                case 'slides-video-pause':
+                    var v2 = document.getElementById('slideVideo');
+                    if (v2) v2.pause();
+                    break;
+
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

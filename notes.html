@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+    <title>Notes - Event Tools</title>
+</head>
+<body>
+    <div class="container" style="padding: 1rem; max-width: 600px;">
+        <header class="flex items-center justify-between mb-4">
+            <h1 style="font-size: 1.5rem;">Notes</h1>
+            <button class="btn btn-ghost" onclick="window.location.href='index.html'">← Back</button>
+        </header>
+
+        <div class="card mb-4">
+            <textarea id="notesArea" placeholder="Type your notes here..." rows="12" style="width: 100%; resize: vertical; min-height: 300px;"></textarea>
+        </div>
+
+        <div class="flex gap-2">
+            <button class="btn btn-secondary" onclick="clearNotes()" style="flex: 1;">Clear</button>
+            <button class="btn btn-primary" onclick="copyNotes()" style="flex: 1;">Copy</button>
+        </div>
+
+        <p id="saveStatus" class="text-muted text-sm text-center mt-2">Auto-saved</p>
+    </div>
+
+    <style>
+        #notesArea {
+            font-family: inherit;
+            font-size: 1rem;
+            line-height: 1.6;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+        }
+
+        #notesArea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        #notesArea::placeholder {
+            color: var(--text-muted);
+        }
+    </style>
+
+    <script>
+        const notesArea = document.getElementById('notesArea');
+        const saveStatus = document.getElementById('saveStatus');
+        let saveTimeout;
+
+        function init() {
+            const saved = localStorage.getItem('eventToolsNotes');
+            if (saved) {
+                notesArea.value = saved;
+            }
+        }
+
+        function save() {
+            localStorage.setItem('eventToolsNotes', notesArea.value);
+            saveStatus.textContent = 'Saved';
+            setTimeout(() => {
+                saveStatus.textContent = 'Auto-saved';
+            }, 1000);
+        }
+
+        notesArea.addEventListener('input', () => {
+            saveStatus.textContent = 'Saving...';
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(save, 500);
+        });
+
+        function clearNotes() {
+            if (confirm('Clear all notes?')) {
+                notesArea.value = '';
+                save();
+            }
+        }
+
+        function copyNotes() {
+            notesArea.select();
+            document.execCommand('copy');
+            saveStatus.textContent = 'Copied!';
+            setTimeout(() => {
+                saveStatus.textContent = 'Auto-saved';
+            }, 1500);
+        }
+
+        init();
+    </script>
+</body>
+</html>
