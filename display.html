@@ -14,6 +14,7 @@
         <div class="standby-content">
             <div class="standby-text">Waiting for controller...</div>
             <div class="standby-dots"><span></span><span></span><span></span></div>
+            <button id="revealSceneBtn" style="display:none;margin-top:2rem;padding:1rem 2rem;font-size:1.25rem;border-radius:8px;border:none;background:var(--accent);color:#fff;">Show Display</button>
         </div>
     </div>
 
@@ -621,22 +622,46 @@
         let slidesFiles = [];
         let slidesIndex = 0;
 
+
+        // Mobile reveal logic
+        let _pendingScene = null;
+        function isMobile() {
+            return window.innerWidth <= 700 || /Mobi|Android/i.test(navigator.userAgent);
+        }
+
         function init() {
             const eventName = localStorage.getItem('eventToolsEventName') || 'Event Tools';
             document.getElementById('welcomeTitle').textContent = eventName;
-            showScene('standby');
+            if (isMobile()) {
+                showScene('standby');
+                document.getElementById('revealSceneBtn').style.display = 'block';
+                document.getElementById('revealSceneBtn').onclick = function() {
+                    if (_pendingScene) {
+                        showScene(_pendingScene);
+                        _pendingScene = null;
+                        document.getElementById('revealSceneBtn').style.display = 'none';
+                    }
+                };
+            } else {
+                showScene('standby');
+            }
         }
 
         function showScene(scene) {
+            if (isMobile() && scene !== 'standby' && !window._sceneRevealAllowed) {
+                _pendingScene = scene;
+                document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+                document.getElementById('scene-standby').classList.add('active');
+                document.getElementById('revealSceneBtn').style.display = 'block';
+                return;
+            }
             if (currentScene === 'waiting') stopWaiting();
-
             document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
             const target = document.getElementById('scene-' + scene);
             if (target) {
                 target.classList.add('active');
                 currentScene = scene;
             }
-
             if (scene === 'waiting') startWaiting();
         }
 
