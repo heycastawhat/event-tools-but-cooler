@@ -25,6 +25,11 @@
         </div>
     </div>
 
+    <div id="scene-teams" class="scene">
+        <div class="scene-label">Teams</div>
+        <div id="teamsGrid" class="teams-display-grid"></div>
+    </div>
+
     <div id="scene-scoreboard" class="scene">
         <div class="scene-label">Leaderboard</div>
         <div id="scoreboardList" class="scoreboard-list"></div>
@@ -149,6 +154,57 @@
             color: var(--text-primary);
             line-height: 1.1;
             text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Teams */
+        #scene-teams {
+            padding: 5rem 4rem 3rem;
+            justify-content: flex-start;
+        }
+
+        .teams-display-grid {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
+            padding: 1rem 0;
+            justify-content: center;
+        }
+
+        .teams-display-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            transition: all 0.4s ease;
+        }
+
+        .teams-display-card h3 {
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .teams-display-member {
+            padding: 0.5rem 0;
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .teams-display-member:last-child {
+            border-bottom: none;
+        }
+
+        .teams-display-count {
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
         }
 
         /* Scoreboard */
@@ -751,6 +807,22 @@
             } catch (e) {}
         }
 
+        // Teams
+        function renderTeams(teamsData) {
+            const grid = document.getElementById('teamsGrid');
+            if (!teamsData || teamsData.length === 0) {
+                grid.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;grid-column:1/-1;">No teams yet</div>';
+                return;
+            }
+            grid.innerHTML = teamsData.map(team =>
+                '<div class="teams-display-card">' +
+                '<h3>' + escapeHtml(team.name) + '</h3>' +
+                team.members.map(m => '<div class="teams-display-member">' + escapeHtml(m) + '</div>').join('') +
+                '<div class="teams-display-count">' + team.members.length + ' members</div>' +
+                '</div>'
+            ).join('');
+        }
+
         // Scoreboard
         function renderScoreboard() {
             const saved = localStorage.getItem('eventToolsScoring');
@@ -1012,6 +1084,20 @@
                     showScene(data.scene);
                     if (data.scene === 'scoreboard') renderScoreboard();
                     if (data.scene === 'schedule') renderSchedule();
+                    if (data.scene === 'teams') {
+                        var saved = localStorage.getItem('eventToolsTeams');
+                        renderTeams(saved ? JSON.parse(saved) : []);
+                    }
+                    break;
+
+                case 'show-teams':
+                    renderTeams(data.teams || []);
+                    showScene('teams');
+                    break;
+
+                case 'refresh-teams':
+                    var t = localStorage.getItem('eventToolsTeams');
+                    renderTeams(t ? JSON.parse(t) : []);
                     break;
 
                 case 'timer-start':

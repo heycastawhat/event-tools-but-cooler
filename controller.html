@@ -20,6 +20,7 @@
 
         <div class="scene-switcher mb-4">
             <button class="scene-btn" data-scene="welcome" onclick="switchScene('welcome')">Welcome</button>
+            <button class="scene-btn" data-scene="teams" onclick="switchScene('teams')">Teams</button>
             <button class="scene-btn" data-scene="scoreboard" onclick="switchScene('scoreboard')">Scoreboard</button>
             <button class="scene-btn" data-scene="timer" onclick="switchScene('timer')">Timer</button>
             <button class="scene-btn" data-scene="picker" onclick="switchScene('picker')">Picker</button>
@@ -28,6 +29,29 @@
             <button class="scene-btn" data-scene="slides" onclick="switchScene('slides')">Slides</button>
             <button class="scene-btn" data-scene="waiting" onclick="switchScene('waiting')">Waiting</button>
             <button class="scene-btn" data-scene="blank" onclick="switchScene('blank')">Blank</button>
+        </div>
+
+        <div id="controls-teams" class="scene-controls" style="display: none;">
+            <div class="card mb-4">
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Teams Controls</h3>
+                <div id="ctrlTeamsPreview" class="ctrl-teams-preview mb-4"></div>
+                <div class="flex gap-2 mb-2">
+                    <button class="btn btn-primary" onclick="generateAndShowTeams()" style="flex: 1;">Generate</button>
+                    <button class="btn btn-primary" onclick="sendStoredTeams()" style="flex: 1;">Show on Display</button>
+                    <button class="btn btn-secondary" onclick="sendCommand('refresh-teams')" style="flex: 1;">Refresh</button>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <div style="flex: 1;">
+                        <label for="ctrlTeamCount" style="font-size: 0.75rem;">Teams</label>
+                        <input type="number" id="ctrlTeamCount" value="2" min="2" max="20">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="ctrlTeamPrefix" style="font-size: 0.75rem;">Prefix</label>
+                        <input type="text" id="ctrlTeamPrefix" value="Team" placeholder="Team">
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="window.open('teamgen.html', '_blank')" style="width: 100%;">Open Team Generator</button>
+            </div>
         </div>
 
         <div id="controls-scoreboard" class="scene-controls" style="display: none;">
@@ -643,6 +667,184 @@
                 ).join('');
             }
         }
+
+        // Teams: generate from stored participants and send to display
+        function loadNoGoes() {
+            const raw = localStorage.getItem('eventToolsNoGoes');
+            try {
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+        }
+
+        function areNoGo(person1, person2, noGoes) {
+            if (!noGoes || noGoes.length === 0) return false;
+            return noGoes.some(group => group.includes(person1) && group.includes(person2));
+        }
+
+        function generateAndShowTeams() {
+            const savedParticipants = localStorage.getItem('eventToolsParticipants');
+            if (!savedParticipants) {
+                alert('No participants found. Open Team Generator to add participants.');
+                return;
+            }
+
+            const participants = JSON.parse(savedParticipants);
+            const teamCount = parseInt(document.getElementById('ctrlTeamCount').value) || 2;
+            const prefix = document.getElementById('ctrlTeamPrefix').value || 'Team';
+
+            if (participants.length < teamCount) {
+                alert('Not enough participants for the number of teams!');
+                return;
+            }
+
+            const noGoes = loadNoGoes();
+
+            // Shuffle
+            const shuffled = [...participants].sort(() => Math.random() - 0.5);
+            const teams = Array.from({ length: teamCount }, () => []);
+
+            for (const person of shuffled) {
+                let placed = false;
+
+                const teamOrder = teams
+                    .map((t, i) => ({ team: t, index: i }))
+                    .sort((a, b) => a.team.length - b.team.length);
+
+                for (const { team, index } of teamOrder) {
+                    const hasConflict = team.some(member => areNoGo(person, member, noGoes));
+                    if (!hasConflict) {
+                        teams[index].push(person);
+                        placed = true;
+                        break;
+                    }
+                }
+
+                if (!placed) {
+                    const smallestIdx = teamOrder[0].index;
+                    teams[smallestIdx].push(person);
+                }
+            }
+
+            const teamsData = teams.map((members, i) => ({ name: `${prefix} ${i + 1}`, members }));
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teamsData));
+
+            // Preview in controller UI for quick feedback
+            try {
+                const preview = document.getElementById('ctrlTeamsPreview');
+                if (preview) {
+                    preview.innerHTML = teamsData.map(t => `<div style="margin-bottom:0.5rem;"><strong>${t.name}:</strong> ${t.members.join(', ')}</div>`).join('');
+                }
+            } catch (e) { console.warn('preview failed', e); }
+
+            console.log('Generated teams', teamsData);
+        }
+
+        function sendStoredTeams() {
+            const raw = localStorage.getItem('eventToolsTeams');
+            if (!raw) {
+                alert('No generated teams found. Generate teams first.');
+                return;
+            }
+            try {
+                const teams = JSON.parse(raw);
+                // update preview too
+                const preview = document.getElementById('ctrlTeamsPreview');
+                if (preview) preview.innerHTML = teams.map(t => `<div style="margin-bottom:0.5rem;"><strong>${t.name}:</strong> ${t.members.join(', ')}</div>`).join('');
+                sendCommand('show-teams', { teams });
+            } catch (e) {
+                console.error('Could not parse saved teams', e);
+                alert('Saved teams are invalid. Regenerate teams.');
+            }
+        }
+
+        // --- Interactive teams editor in controller preview ---
+        function renderCtrlTeamsEditor() {
+            const raw = localStorage.getItem('eventToolsTeams');
+            const preview = document.getElementById('ctrlTeamsPreview');
+            if (!preview) return;
+            if (!raw) {
+                preview.innerHTML = '<div class="text-muted">No generated teams</div>';
+                return;
+            }
+            let teams;
+            try { teams = JSON.parse(raw); } catch (e) { preview.innerHTML = '<div class="text-muted">Invalid teams data</div>'; return; }
+
+            const html = teams.map((t, ti) => {
+                const members = t.members.map((m, mi) =>
+                    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="flex:1">${m}</span>
+                        <div style="display:flex;gap:4px">
+                            <button class="btn btn-ghost" onclick="moveMember(${ti}, ${mi}, -1)">◀</button>
+                            <button class="btn btn-ghost" onclick="moveMember(${ti}, ${mi}, 1)">▶</button>
+                            <button class="btn btn-ghost" onclick="removeMember(${ti}, ${mi})">✖</button>
+                        </div>
+                    </div>`
+                ).join('');
+
+                return `<div style="padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--bg-tertiary)">
+                    <div style="font-weight:700;margin-bottom:8px">${t.name}</div>
+                    ${members}
+                    <div style="display:flex;gap:8px;margin-top:8px">
+                        <input placeholder="Add member" id="ctrlAdd_${ti}" style="flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-primary)">
+                        <button class="btn btn-primary" onclick="addMemberToTeam(${ti})">Add</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            preview.innerHTML = html + `<div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-primary" onclick="saveEditedTeams(true)">Save & Show</button>
+                    <button class="btn btn-secondary" onclick="saveEditedTeams(false)">Save Locally</button>
+                </div>`;
+        }
+
+        function moveMember(teamIndex, memberIndex, direction) {
+            const raw = localStorage.getItem('eventToolsTeams');
+            if (!raw) return;
+            const teams = JSON.parse(raw);
+            const member = teams[teamIndex].members.splice(memberIndex, 1)[0];
+            const dest = teamIndex + direction;
+            if (dest < 0 || dest >= teams.length) {
+                // can't move
+                teams[teamIndex].members.splice(memberIndex, 0, member);
+            } else {
+                teams[dest].members.push(member);
+            }
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teams));
+            renderCtrlTeamsEditor();
+        }
+
+        function removeMember(teamIndex, memberIndex) {
+            const raw = localStorage.getItem('eventToolsTeams');
+            if (!raw) return;
+            const teams = JSON.parse(raw);
+            teams[teamIndex].members.splice(memberIndex, 1);
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teams));
+            renderCtrlTeamsEditor();
+        }
+
+        function addMemberToTeam(teamIndex) {
+            const el = document.getElementById('ctrlAdd_' + teamIndex);
+            if (!el) return;
+            const name = el.value.trim();
+            if (!name) return;
+            const raw = localStorage.getItem('eventToolsTeams');
+            const teams = raw ? JSON.parse(raw) : [];
+            teams[teamIndex].members.push(name);
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teams));
+            el.value = '';
+            renderCtrlTeamsEditor();
+        }
+
+        function saveEditedTeams(sendToDisplay) {
+            const raw = localStorage.getItem('eventToolsTeams');
+            if (!raw) return;
+            const teams = JSON.parse(raw);
+            localStorage.setItem('eventToolsTeams', JSON.stringify(teams));
+            if (sendToDisplay) sendCommand('show-teams', { teams });
+        }
+
+        // ensure editor is initialized on load
+        document.addEventListener('DOMContentLoaded', () => setTimeout(renderCtrlTeamsEditor, 100));
 
         function pickerSpin() {
             loadPickerPool();

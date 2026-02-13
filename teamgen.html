@@ -192,6 +192,11 @@
             updateParticipantDisplay();
         }
 
+        const savedNoGoes = localStorage.getItem('eventToolsNoGoes');
+        if (savedNoGoes) {
+            try { noGoes = JSON.parse(savedNoGoes); updateNoGoDisplay(); } catch (e) {}
+        }
+
         function toggleSection(section) {
             const content = document.getElementById(section + 'Content');
             const icon = document.getElementById(section + 'Icon');
@@ -294,12 +299,14 @@
             
             noGoes.push(selected);
             updateNoGoDisplay();
+            localStorage.setItem('eventToolsNoGoes', JSON.stringify(noGoes));
             clearNoGoSelection();
         }
 
         function removeNoGo(index) {
             noGoes.splice(index, 1);
             updateNoGoDisplay();
+            localStorage.setItem('eventToolsNoGoes', JSON.stringify(noGoes));
         }
 
         function updateNoGoDisplay() {
@@ -314,6 +321,7 @@
             `).join('');
             
             count.textContent = noGoes.length;
+            localStorage.setItem('eventToolsNoGoes', JSON.stringify(noGoes));
         }
 
         function areNoGo(person1, person2) {
@@ -387,6 +395,8 @@
             updateParticipantDisplay();
             updateNoGoDisplay();
             document.getElementById('teamsOutput').innerHTML = '';
+            localStorage.removeItem('eventToolsParticipants');
+            localStorage.removeItem('eventToolsNoGoes');
         }
 
 
