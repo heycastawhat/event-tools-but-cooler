@@ -173,29 +173,7 @@
                 </div>
             </div>
 
-            <!-- Step 3: Schedule -->
-            <div class="onboard-step" data-step="3" style="display: none;">
-                <div class="modal-title">Schedule</div>
-                <div class="modal-text">Add events to your timeline.</div>
-                <div id="onboardScheduleList" style="max-height: 150px; overflow-y: auto; margin-bottom: 0.75rem;"></div>
-                <div style="background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 0.75rem;">
-                    <div class="flex gap-2 mb-2">
-                        <div style="flex: 1;">
-                            <label for="onboardTime" class="text-sm">Time</label>
-                            <input type="time" id="onboardTime">
-                        </div>
-                        <div style="flex: 1;">
-                            <label for="onboardDuration" class="text-sm">Duration (min)</label>
-                            <input type="number" id="onboardDuration" value="30" min="5" step="5">
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label for="onboardTitle" class="text-sm">Title</label>
-                        <input type="text" id="onboardTitle" placeholder="e.g., Opening Ceremony">
-                    </div>
-                    <button class="btn btn-secondary" onclick="addOnboardEvent()" style="width: 100%;">+ Add to Schedule</button>
-                </div>
-            </div>
+            <!-- schedule onboarding removed -->
 
             <div class="onboard-nav">
                 <div></div>
@@ -216,7 +194,7 @@
             <button class="btn btn-secondary" onclick="window.location.href='teamgen.html'">Team Generator</button>
             <button class="btn btn-secondary" onclick="window.location.href='scoring.html'">Scoring</button>
             <button class="btn btn-secondary" onclick="window.location.href='timer.html'">Timer</button>
-            <button class="btn btn-secondary" onclick="window.location.href='schedule.html'">Schedule</button>
+            <!-- schedule removed -->
             <button class="btn btn-secondary" onclick="window.location.href='picker.html'">Random Picker</button>
             <button class="btn btn-secondary" onclick="window.location.href='notes.html'">Notes</button>
         </div>
@@ -283,7 +261,7 @@
         function confirmNewEvent() {
             localStorage.removeItem('eventToolsTeams');
             localStorage.removeItem('eventToolsScoring');
-            localStorage.removeItem('eventToolsSchedule');
+            // schedule removed
             localStorage.removeItem('eventToolsPicker');
             localStorage.removeItem('eventToolsParticipants');
             localStorage.removeItem('eventTools_onboarded');
@@ -403,7 +381,7 @@
             const data = {
                 teams: localStorage.getItem('eventToolsTeams'),
                 scoring: localStorage.getItem('eventToolsScoring'),
-                schedule: localStorage.getItem('eventToolsSchedule'),
+                // schedule removed
                 notes: localStorage.getItem('eventToolsNotes'),
                 settings: {
                     accent: localStorage.getItem('eventToolsAccent'),
@@ -436,7 +414,7 @@
                     const data = JSON.parse(e.target.result);
                     if (data.teams) localStorage.setItem('eventToolsTeams', data.teams);
                     if (data.scoring) localStorage.setItem('eventToolsScoring', data.scoring);
-                    if (data.schedule) localStorage.setItem('eventToolsSchedule', data.schedule);
+                    // schedule removed
                     if (data.notes) localStorage.setItem('eventToolsNotes', data.notes);
                     if (data.settings) {
                         if (data.settings.accent) localStorage.setItem('eventToolsAccent', data.settings.accent);
@@ -461,7 +439,7 @@
             { name: 'Team Generator', type: 'tool', action: () => window.location.href = 'teamgen.html' },
             { name: 'Scoring', type: 'tool', action: () => window.location.href = 'scoring.html' },
             { name: 'Timer', type: 'tool', action: () => window.location.href = 'timer.html' },
-            { name: 'Schedule', type: 'tool', action: () => window.location.href = 'schedule.html' },
+            // schedule removed
             { name: 'Random Picker', type: 'tool', action: () => window.location.href = 'picker.html' },
             { name: 'Notes', type: 'tool', action: () => window.location.href = 'notes.html' },
             { name: 'Controller', type: 'tool', action: () => window.location.href = 'controller.html' },
@@ -526,14 +504,11 @@
 
         // Onboarding
         let onboardStep = 0;
-        let onboardScheduleEvents = [];
-        const ONBOARD_TOTAL_STEPS = 4;
+        const ONBOARD_TOTAL_STEPS = 3;
 
         function startOnboarding() {
             onboardStep = 0;
-            onboardScheduleEvents = [];
             document.getElementById('onboardPeople').value = '';
-            document.getElementById('onboardScheduleList').innerHTML = '';
             showOnboardStep(0);
             document.getElementById('onboarding').style.display = 'flex';
             updateCustomizeSelection();
@@ -570,7 +545,6 @@
 
         function onboardNext() {
             if (onboardStep === 1) saveOnboardPeople();
-            if (onboardStep === 3) saveOnboardSchedule();
 
             if (onboardStep >= ONBOARD_TOTAL_STEPS - 1) {
                 finishOnboarding();
@@ -601,50 +575,7 @@
             }
         }
 
-        function addOnboardEvent() {
-            const time = document.getElementById('onboardTime').value;
-            const title = document.getElementById('onboardTitle').value.trim();
-            const duration = parseInt(document.getElementById('onboardDuration').value) || 30;
-            if (!time || !title) return;
-
-            onboardScheduleEvents.push({ id: Date.now(), time, title, duration, location: '' });
-            onboardScheduleEvents.sort((a, b) => a.time.localeCompare(b.time));
-
-            document.getElementById('onboardTitle').value = '';
-            renderOnboardSchedule();
-        }
-
-        function removeOnboardEvent(id) {
-            onboardScheduleEvents = onboardScheduleEvents.filter(e => e.id !== id);
-            renderOnboardSchedule();
-        }
-
-        function renderOnboardSchedule() {
-            const list = document.getElementById('onboardScheduleList');
-            if (onboardScheduleEvents.length === 0) {
-                list.innerHTML = '<div class="text-muted text-center" style="padding: 0.5rem;">No events yet</div>';
-                return;
-            }
-            list.innerHTML = onboardScheduleEvents.map(e => {
-                const [h, m] = e.time.split(':');
-                const hr = parseInt(h) % 12 || 12;
-                const ampm = parseInt(h) >= 12 ? 'PM' : 'AM';
-                return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 0.5rem;">
-                    <div>
-                        <span style="font-weight: 600; color: var(--text-primary);">${hr}:${m} ${ampm}</span>
-                        <span style="color: var(--text-secondary);"> — ${e.title}</span>
-                        <span class="text-muted text-sm"> (${e.duration} min)</span>
-                    </div>
-                    <button onclick="removeOnboardEvent(${e.id})" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem; padding: 0 0.25rem;">&times;</button>
-                </div>`;
-            }).join('');
-        }
-
-        function saveOnboardSchedule() {
-            if (onboardScheduleEvents.length > 0) {
-                localStorage.setItem('eventToolsSchedule', JSON.stringify(onboardScheduleEvents));
-            }
-        }
+        // schedule onboarding removed
 
         function finishOnboarding() {
             localStorage.setItem('eventTools_onboarded', 'true');

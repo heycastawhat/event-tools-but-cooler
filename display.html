@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="styles.css">
     <script src="theme.js"></script>
     <script src="sync.js"></script>
-    <title>Display - Event Tools</title>
+    <title>Display - Event Suite</title>
 </head>
 <body>
 
@@ -54,10 +54,7 @@
         <div class="picker-confetti" id="pickerConfetti"></div>
     </div>
 
-    <div id="scene-schedule" class="scene">
-        <div class="scene-label">Schedule</div>
-        <div id="scheduleTimeline" class="schedule-timeline"></div>
-    </div>
+    <!-- schedule scene removed -->
 
     <div id="scene-message" class="scene">
         <div class="message-wrap">
@@ -66,7 +63,14 @@
         </div>
     </div>
 
-    <div id="scene-blank" class="scene"></div>
+    <div id="scene-blank" class="scene">
+        <div id="blankContainer" style="position:relative;width:100%;height:100%;overflow:hidden;">
+            <canvas id="blankCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+            <div id="blankOverlay" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+                <div id="blankLogo" style="pointer-events:auto;font-size:4rem;font-weight:800;color:var(--text-primary);text-shadow:0 6px 30px rgba(0,0,0,0.6);display:none;">Event Suite</div>
+            </div>
+        </div>
+    </div>
 
     <div id="scene-waiting" class="scene">
         <div class="waiting-wrap">
@@ -417,22 +421,7 @@
             100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
 
-        /* Schedule */
-        #scene-schedule {
-            padding: 5rem 4rem 3rem;
-            justify-content: flex-start;
-        }
 
-        .schedule-timeline {
-            width: 100%;
-            max-width: 800px;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-            overflow-y: auto;
-            max-height: calc(100vh - 8rem);
-            padding: 1rem 0;
-        }
 
         .sched-item {
             display: flex;
@@ -668,6 +657,10 @@
             0% { opacity: 1; }
             100% { opacity: 0; }
         }
+        /* Blank scene animation helper styles */
+        #scene-blank { background: #000; }
+        .blank-gradient { animation: gradientShift 20s linear infinite; background-size: 400% 400%; }
+        .blob { position:absolute;border-radius:50%;opacity:0.6;mix-blend-mode:screen;filter:blur(18px); }
         /* Slides */
         #scene-slides {
             padding: 0;
@@ -733,7 +726,7 @@
         }
 
         function init() {
-            const eventName = localStorage.getItem('eventToolsEventName') || 'Event Tools';
+            const eventName = localStorage.getItem('eventToolsEventName') || 'Event Suite';
             document.getElementById('welcomeTitle').textContent = eventName;
             if (isMobile()) {
                 showScene('standby');
@@ -926,46 +919,7 @@
             }).join('');
         }
 
-        // Schedule
-        function renderSchedule() {
-            const saved = localStorage.getItem('eventToolsSchedule');
-            const container = document.getElementById('scheduleTimeline');
-            if (!saved) {
-                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;">No events scheduled</div>';
-                return;
-            }
-
-            const events = JSON.parse(saved);
-            if (events.length === 0) {
-                container.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:2rem;">No events scheduled</div>';
-                return;
-            }
-
-            const now = new Date();
-            const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-            container.innerHTML = events.map(ev => {
-                const [startH, startM] = ev.time.split(':').map(Number);
-                const startMinutes = startH * 60 + startM;
-                const endMinutes = startMinutes + ev.duration;
-
-                let status = 'upcoming';
-                if (nowMinutes >= startMinutes && nowMinutes < endMinutes) status = 'current';
-                else if (nowMinutes >= endMinutes) status = 'past';
-
-                const h = startH % 12 || 12;
-                const ampm = startH >= 12 ? 'PM' : 'AM';
-                const timeStr = h + ':' + String(startM).padStart(2, '0') + ' ' + ampm;
-
-                return `<div class="sched-item ${status}">
-                    <div class="sched-time">${timeStr}</div>
-                    <div class="sched-details">
-                        <div class="sched-title">${escapeHtml(ev.title)}${status === 'current' ? '<span class="sched-now-badge">Now</span>' : ''}</div>
-                        <div class="sched-meta">${ev.location ? escapeHtml(ev.location) + ' · ' : ''}${ev.duration} min</div>
-                    </div>
-                </div>`;
-            }).join('');
-        }
+        // schedule removed
 
         // Picker
         function startPicker(pool) {
@@ -1027,6 +981,169 @@
             setTimeout(() => container.innerHTML = '', 5000);
         }
 
+        // Blank scene animations
+        let _blankMode = null;
+        let _blankAnimation = null;
+        let _blankCanvas, _blankCtx, _blankW, _blankH;
+
+        function setBlankMode(mode) {
+            _blankMode = mode;
+            const canvas = document.getElementById('blankCanvas');
+            const overlayLogo = document.getElementById('blankLogo');
+            if (!canvas) return;
+            // resize
+            canvas.width = canvas.clientWidth * devicePixelRatio;
+            canvas.height = canvas.clientHeight * devicePixelRatio;
+            _blankCanvas = canvas; _blankCtx = canvas.getContext('2d');
+            _blankW = canvas.width; _blankH = canvas.height;
+            overlayLogo.style.display = 'none';
+            cancelBlank();
+            switch (mode) {
+                case 'starfield': startStarfield(); break;
+                case 'gradient': startGradientWave(); break;
+                case 'bouncing': startBouncingLogo(); break;
+                case 'matrix': startMatrixRain(); break;
+                default: clearBlank(); break;
+            }
+        }
+
+        function cancelBlank() {
+            if (_blankAnimation && _blankAnimation.stop) try { _blankAnimation.stop(); } catch (e) {}
+            _blankAnimation = null;
+            const ctx = _blankCtx;
+            if (ctx) ctx.clearRect(0,0,_blankW,_blankH);
+            document.getElementById('scene-blank').style.background = '';
+            document.getElementById('blankLogo').style.display = 'none';
+            // remove any blobs
+            document.querySelectorAll('#blankContainer .blob').forEach(b => b.remove());
+        }
+
+        function clearBlank() { cancelBlank(); }
+
+        // Starfield — use pixel positions and speeds
+        function startStarfield() {
+            const count = Math.max(100, Math.floor((_blankW/_blankH) * 120));
+            const stars = Array.from({length:count}, () => ({
+                x: Math.random() * _blankW,
+                y: Math.random() * _blankH,
+                z: 0.2 + Math.random() * 2.8,
+                vx: (Math.random()-0.5) * 0.2,
+                vy: 0.05 + Math.random() * 0.4
+            }));
+            let raf;
+            function draw() {
+                const ctx = _blankCtx; ctx.clearRect(0,0,_blankW,_blankH);
+                for (let s of stars) {
+                    s.y += s.vy * s.z;
+                    s.x += s.vx * s.z;
+                    if (s.y > _blankH + 10) { s.y = -10; s.x = Math.random() * _blankW; }
+                    if (s.x < -10) s.x = _blankW + 10;
+                    if (s.x > _blankW + 10) s.x = -10;
+                    const r = Math.max(0.6, s.z * 0.6) * devicePixelRatio;
+                    ctx.globalAlpha = Math.min(1, 0.4 + s.z / 3);
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI*2); ctx.fill();
+                }
+                raf = requestAnimationFrame(draw);
+            }
+            _blankAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
+        }
+
+        // Gradient wave
+        function startGradientWave() {
+            const el = document.getElementById('scene-blank');
+            el.style.background = 'linear-gradient(120deg, #0f2027 0%, #203a43 50%, #2c5364 100%)';
+            el.style.backgroundSize = '400% 400%';
+            el.style.backgroundPosition = '0% 50%';
+            el.classList.add('blank-gradient');
+            _blankAnimation = { stop: () => { el.classList.remove('blank-gradient'); el.style.backgroundSize = ''; el.style.backgroundPosition = ''; } };
+        }
+
+        // Bouncing logo — pixel-based, slower, keeps inside bounds
+        function startBouncingLogo() {
+            const logo = document.getElementById('blankLogo');
+            const container = document.getElementById('blankContainer');
+            logo.style.display = 'block';
+            // initialize sizes on next frame to ensure layout metrics are correct
+            let x = 0, y = 0, dx = 2, dy = 2, raf;
+            const resizeHandler = () => {
+                const crect = container.getBoundingClientRect();
+                const lrect = logo.getBoundingClientRect();
+                // ensure logo remains inside bounds after resize
+                if (x + lrect.width > crect.width) x = Math.max(0, crect.width - lrect.width);
+                if (y + lrect.height > crect.height) y = Math.max(0, crect.height - lrect.height);
+            };
+
+            function stepInit() {
+                // ensure logo participates as an absolutely positioned element inside container
+                logo.style.position = 'absolute';
+                logo.style.left = '0';
+                logo.style.top = '0';
+                logo.style.margin = '0';
+                logo.style.transform = 'none';
+                // force reflow
+                void logo.offsetWidth;
+
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                const lW = logo.offsetWidth;
+                const lH = logo.offsetHeight;
+                // center initial position using CSS pixels
+                x = (w - lW) / 2;
+                y = (h - lH) / 2;
+                // speed scaled to container size (CSS pixels)
+                dx = Math.max(1, w * 0.002);
+                dy = Math.max(1, h * 0.002);
+
+                function step() {
+                    const cw = container.clientWidth;
+                    const ch = container.clientHeight;
+                    const curLW = logo.offsetWidth;
+                    const curLH = logo.offsetHeight;
+                    x += dx; y += dy;
+                    if (x <= 0) { x = 0; dx = Math.abs(dx); }
+                    if (x + curLW >= cw) { x = cw - curLW; dx = -Math.abs(dx); }
+                    if (y <= 0) { y = 0; dy = Math.abs(dy); }
+                    if (y + curLH >= ch) { y = ch - curLH; dy = -Math.abs(dy); }
+                    logo.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+                    raf = requestAnimationFrame(step);
+                }
+
+                window.addEventListener('resize', resizeHandler);
+                _blankAnimation = { stop: () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resizeHandler); } };
+                step();
+            }
+
+            // wait a frame so styles/layout settle (ensures correct bounding rects)
+            requestAnimationFrame(stepInit);
+        }
+
+        // Matrix rain
+        function startMatrixRain() {
+            const ctx = _blankCtx;
+            const cols = Math.floor(_blankW / 14);
+            const drops = new Array(cols).fill(1);
+            let raf;
+            ctx.fillStyle = 'rgba(0,0,0,0.15)';
+            function draw() {
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.fillRect(0,0,_blankW,_blankH);
+                ctx.fillStyle = '#0f0'; ctx.font = (12*devicePixelRatio)+'px monospace';
+                for (let i=0;i<cols;i++) {
+                    const text = String.fromCharCode(0x30A0 + Math.random()*96);
+                    ctx.fillText(text, i*14*devicePixelRatio, drops[i]*14*devicePixelRatio);
+                    if (drops[i]*14*devicePixelRatio > _blankH && Math.random() > 0.975) drops[i]=0;
+                    drops[i]++;
+                }
+                raf = requestAnimationFrame(draw);
+            }
+            _blankAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
+        }
+
+        // Ambient blobs removed
+
         function playWinSound() {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1068,11 +1185,20 @@
         }
 
         function flashAttention() {
-            const el = document.getElementById('attentionFlash');
-            el.classList.remove('active');
-            void el.offsetHeight;
-            el.classList.add('active');
-            setTimeout(() => el.classList.remove('active'), 700);
+                // Create a temporary overlay so flashes can't be cancelled by other DOM updates
+                const temp = document.createElement('div');
+                temp.className = 'attention-flash';
+                // ensure it sits above everything
+                temp.style.zIndex = 9999;
+                document.body.appendChild(temp);
+                // trigger animation
+                void temp.offsetHeight;
+                temp.classList.add('active');
+                setTimeout(() => {
+                    temp.classList.remove('active');
+                    // remove after animation completes
+                    setTimeout(() => temp.remove(), 300);
+                }, 700);
         }
 
         function escapeHtml(str) {
@@ -1202,7 +1328,6 @@
                 case 'show-scene':
                     showScene(data.scene);
                     if (data.scene === 'scoreboard') renderScoreboard();
-                    if (data.scene === 'schedule') renderSchedule();
                     if (data.scene === 'teams') {
                         var saved = localStorage.getItem('eventToolsTeams');
                         renderTeams(saved ? JSON.parse(saved) : []);
@@ -1269,9 +1394,7 @@
                     renderScoreboard();
                     break;
 
-                case 'refresh-schedule':
-                    renderSchedule();
-                    break;
+                // schedule removed
 
                 case 'play-attention':
                     playAttentionSound();
@@ -1290,23 +1413,29 @@
                     break;
 
                 case 'set-theme':
-                    if (data.theme === 'light') {
-                        document.documentElement.style.setProperty('--bg-primary', '#ffffff');
-                        document.documentElement.style.setProperty('--bg-secondary', '#f6f8fa');
-                        document.documentElement.style.setProperty('--bg-tertiary', '#eaeef2');
-                        document.documentElement.style.setProperty('--text-primary', '#1f2328');
-                        document.documentElement.style.setProperty('--text-secondary', '#656d76');
-                        document.documentElement.style.setProperty('--text-muted', '#8b949e');
-                        document.documentElement.style.setProperty('--border', '#d0d7de');
-                    } else {
-                        document.documentElement.style.setProperty('--bg-primary', '#0d1117');
-                        document.documentElement.style.setProperty('--bg-secondary', '#161b22');
-                        document.documentElement.style.setProperty('--bg-tertiary', '#21262d');
-                        document.documentElement.style.setProperty('--text-primary', '#e6edf3');
-                        document.documentElement.style.setProperty('--text-secondary', '#8b949e');
-                        document.documentElement.style.setProperty('--text-muted', '#6e7681');
-                        document.documentElement.style.setProperty('--border', '#30363d');
-                    }
+                    var themes = {
+                        light: {
+                            '--bg-primary': '#ffffff', '--bg-secondary': '#f6f8fa', '--bg-tertiary': '#eaeef2',
+                            '--text-primary': '#1f2328', '--text-secondary': '#656d76', '--text-muted': '#8b949e',
+                            '--border': '#d0d7de', '--border-light': '#eaeef2'
+                        },
+                        mocha: {
+                            '--bg-primary': '#1e1e2e', '--bg-secondary': '#181825', '--bg-tertiary': '#313244',
+                            '--text-primary': '#cdd6f4', '--text-secondary': '#a6adc8', '--text-muted': '#6c7086',
+                            '--border': '#45475a', '--border-light': '#313244',
+                            '--accent': '#cba6f7', '--accent-hover': '#b4befe', '--accent-subtle': 'rgba(203,166,247,0.15)',
+                            '--success': '#a6e3a1', '--warning': '#f9e2af', '--error': '#f38ba8'
+                        },
+                        dark: {
+                            '--bg-primary': '#0d1117', '--bg-secondary': '#161b22', '--bg-tertiary': '#21262d',
+                            '--text-primary': '#e6edf3', '--text-secondary': '#8b949e', '--text-muted': '#6e7681',
+                            '--border': '#30363d', '--border-light': '#21262d'
+                        }
+                    };
+                    var t = themes[data.theme] || themes.dark;
+                    Object.keys(t).forEach(function(k) {
+                        document.documentElement.style.setProperty(k, t[k]);
+                    });
                     break;
 
                 case 'set-accent':
@@ -1355,6 +1484,11 @@
                 case 'slides-video-pause':
                     var v2 = document.getElementById('slideVideo');
                     if (v2) v2.pause();
+                    break;
+
+                case 'set-blank':
+                    if (data.mode) setBlankMode(data.mode);
+                    if (data.show) showScene('blank');
                     break;
 
                 case 'camera-offer':
