@@ -5,14 +5,251 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <script src="theme.js"></script>
-    <title>Event Tools</title>
+    <script src="sync.js"></script>
+    <title>Admin Panel - Event Tools</title>
+    <style>
+        .mobile-home { display: none; }
+        .tile-dashboard { display: none; }
+
+        @media (max-width: 768px) {
+            .mobile-home { display: flex; }
+        }
+        @media (min-width: 769px) {
+            .tile-dashboard { display: grid; }
+        }
+
+        .tile-dashboard {
+            width: 100%;
+            max-width: 750px;
+            margin: 0 auto;
+            padding: 2rem;
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: 140px;
+            gap: 1rem;
+            align-content: center;
+            min-height: 100vh;
+        }
+
+        .tile {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tile:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+        }
+
+        .tile-wide { grid-column: span 2; }
+        .tile-tall { grid-row: span 2; }
+
+        .tile-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .tile-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .tile-sub {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .tile-accent {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .tile-accent .tile-title,
+        .tile-accent .tile-value,
+        .tile-accent .tile-sub {
+            color: #fff;
+        }
+
+        .tile-accent:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .tile-scores-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .tile-score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .tile-score-rank {
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .tile-score-name {
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .tile-score-pts {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .admin-layout {
+            max-width: 1000px;
+            padding: 1.5rem;
+        }
+
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 769px) {
+            .admin-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .admin-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .admin-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+        }
+
+        .admin-card-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .admin-stat-row {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .admin-stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .admin-stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .admin-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.25rem;
+        }
+
+        .admin-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .admin-stat-item {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+
+        .admin-stat-item .admin-stat-value {
+            font-size: 1.5rem;
+            display: block;
+        }
+
+        .admin-stat-item .admin-stat-label {
+            display: block;
+            margin-top: 0.25rem;
+        }
+
+        .feature-toggles {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .feature-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .feature-toggle input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            margin: 0;
+            flex-shrink: 0;
+        }
+    </style>
 </head>
 <body>
     <div class="hamburger-menu left">
         <button class="hamburger-btn" onclick="toggleMenu()">&#9776;</button>
         <div id="menuDropdown" class="sidebar-menu">
             <button onclick="showNewEventModal()" class="sidebar-item">New Event</button>
-            <button onclick="showCustomizeModal()" class="sidebar-item">Customize</button>
+            <button onclick="showCustomizeModal()" class="sidebar-item">Customise</button>
             <button onclick="showSettingsModal()" class="sidebar-item">Settings</button>
             <button onclick="showSearch()" class="sidebar-item">Search</button>
         </div>
@@ -31,10 +268,10 @@
 
     <div id="customizeModal" class="modal-overlay" style="display: none;">
         <div class="modal-content" style="max-width: 450px;">
-            <div class="modal-title">Customize</div>
+            <div class="modal-title">Customise</div>
             <div class="customize-options">
                 <div class="customize-group">
-                    <label>Accent Color</label>
+                    <label>Accent Colour</label>
                     <div class="color-options">
                         <button class="color-swatch" style="background: #58a6ff;" onclick="setAccentColor('#58a6ff')" data-color="#58a6ff"></button>
                         <button class="color-swatch" style="background: #f78166;" onclick="setAccentColor('#f78166')" data-color="#f78166"></button>
@@ -144,8 +381,8 @@
                 <div class="modal-title">Appearance</div>
                 <div class="modal-text">Customise the look and feel.</div>
                 <div class="customize-options">
-                    <div class="customize-group">
-                        <label>Accent Color</label>
+                <div class="customize-group">
+                    <label>Accent Colour</label>
                         <div class="color-options">
                             <button class="color-swatch" style="background: #58a6ff;" onclick="setAccentColor('#58a6ff')" data-color="#58a6ff"></button>
                             <button class="color-swatch" style="background: #f78166;" onclick="setAccentColor('#f78166')" data-color="#f78166"></button>
@@ -187,29 +424,112 @@
 
     <input type="file" id="importInput" accept=".json" style="display: none;" onchange="handleImport(event)">
 
-    <div class="container flex flex-col items-center" style="justify-content: center; min-height: 100vh;">
-        <h1>Event tools</h1>
-        <p class="text-muted mb-4">Tools for events</p>
-        <div class="flex gap-2" style="flex-wrap: wrap; justify-content: center;">
-            <button class="btn btn-secondary" onclick="window.location.href='teamgen.html'">Team Generator</button>
-            <button class="btn btn-secondary" onclick="window.location.href='scoring.html'">Scoring</button>
-            <button class="btn btn-secondary" onclick="window.location.href='timer.html'">Timer</button>
-            <!-- schedule removed -->
-            <button class="btn btn-secondary" onclick="window.location.href='picker.html'">Random Picker</button>
-            <button class="btn btn-secondary" onclick="window.location.href='notes.html'">Notes</button>
+    <!-- Admin Panel Layout -->
+    <div class="container admin-layout">
+        <div class="admin-header">
+            <h1 style="font-size:1.75rem;margin:0;">Admin Panel</h1>
+            <div class="flex gap-2">
+                <button class="btn btn-primary" onclick="window.location.href='controller.html'">Controller</button>
+                <button class="btn btn-secondary" onclick="window.open('display.html', '_blank')">Open Display</button>
+            </div>
         </div>
-        <div class="flex gap-2 mt-4" style="flex-wrap: wrap; justify-content: center;">
-            <button class="btn btn-primary" onclick="window.location.href='controller.html'" style="padding: 1rem 2rem;">Controller</button>
-            <button class="btn btn-secondary" onclick="window.open('display.html', '_blank')" style="padding: 1rem 2rem;">Open Display</button>
+
+        <div class="admin-grid">
+            <!-- Connections -->
+            <div class="admin-card">
+                <div class="admin-card-title">Connections</div>
+                <div class="admin-stat-row">
+                    <div class="admin-stat">
+                        <div class="admin-stat-value" id="adminClientCount">—</div>
+                        <div class="admin-stat-label">Total Connected</div>
+                    </div>
+                </div>
+                <div id="adminNetworkURL" style="display:none;" class="mt-2">
+                    <div class="text-muted text-sm mb-1">Controller URL:</div>
+                    <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.5rem;font-family:monospace;font-size:0.8rem;color:var(--accent);user-select:all;cursor:pointer;word-break:break-all;" onclick="navigator.clipboard.writeText(this.textContent.trim())" title="Click to copy" id="adminNetworkURLText"></div>
+                </div>
+            </div>
+
+            <!-- Event Setup -->
+            <div class="admin-card">
+                <div class="admin-card-title">Event Setup</div>
+                <div class="mb-2">
+                    <label style="font-size:0.8rem;">Event Name</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="adminEventName" placeholder="My Event" style="flex:1;">
+                        <button class="btn btn-primary" onclick="broadcastEventName()">Set</button>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" onclick="showNewEventModal()" style="width:100%;margin-top:0.5rem;">New Event (Reset All)</button>
+            </div>
+
+            <!-- Theme Broadcast -->
+            <div class="admin-card">
+                <div class="admin-card-title">Theme (All Devices)</div>
+                <div class="mb-2">
+                    <label style="font-size:0.8rem;">Theme</label>
+                    <div class="flex gap-2 mt-1">
+                        <button class="btn btn-secondary" onclick="broadcastTheme('dark')" style="flex:1;">Dark</button>
+                        <button class="btn btn-secondary" onclick="broadcastTheme('light')" style="flex:1;">Light</button>
+                        <button class="btn btn-secondary" onclick="broadcastTheme('mocha')" style="flex:1;">Mocha</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:0.8rem;">Accent Colour</label>
+                    <div class="color-options mt-1">
+                        <button class="color-swatch" style="background:#58a6ff;" onclick="broadcastAccent('#58a6ff')"></button>
+                        <button class="color-swatch" style="background:#f78166;" onclick="broadcastAccent('#f78166')"></button>
+                        <button class="color-swatch" style="background:#a371f7;" onclick="broadcastAccent('#a371f7')"></button>
+                        <button class="color-swatch" style="background:#3fb950;" onclick="broadcastAccent('#3fb950')"></button>
+                        <button class="color-swatch" style="background:#f0883e;" onclick="broadcastAccent('#f0883e')"></button>
+                        <button class="color-swatch" style="background:#db61a2;" onclick="broadcastAccent('#db61a2')"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controller Features -->
+            <div class="admin-card">
+                <div class="admin-card-title">Controller Features</div>
+                <p class="text-muted text-sm mb-2">Toggle which scenes are available on the controller.</p>
+                <div class="feature-toggles" id="featureToggles">
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="welcome" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Welcome</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="teams" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Teams</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="scoreboard" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Scoreboard</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="timer" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Timer</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="picker" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Picker</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="message" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Message</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="slides" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Slides</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="camera" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Camera</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="waiting" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Waiting</span></div>
+                    <div class="feature-toggle" onclick="this.querySelector('input').click()"><input type="checkbox" data-feature="blank" checked onchange="saveFeatures()" onclick="event.stopPropagation()"><span>Blank</span></div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="admin-card">
+                <div class="admin-card-title">Stats</div>
+                <div class="admin-stats-grid" id="adminStats">
+                    <div class="admin-stat-item"><span class="admin-stat-value" id="statParticipants">0</span><span class="admin-stat-label">Participants</span></div>
+                    <div class="admin-stat-item"><span class="admin-stat-value" id="statTeams">0</span><span class="admin-stat-label">Teams</span></div>
+                    <div class="admin-stat-item"><span class="admin-stat-value" id="statRounds">0</span><span class="admin-stat-label">Rounds</span></div>
+                    <div class="admin-stat-item"><span class="admin-stat-value" id="statTopScore">0</span><span class="admin-stat-label">Top Score</span></div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="admin-card">
+                <div class="admin-card-title">Quick Actions</div>
+                <div class="flex gap-2 mb-2" style="flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="window.location.href='teamgen.html'" style="flex:1;">Team Generator</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='scoring.html'" style="flex:1;">Scoring</button>
+                </div>
+                <div class="flex gap-2" style="flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="playAttention()" style="flex:1;">Attention</button>
+                    <button class="btn btn-secondary" onclick="exportData()" style="flex:1;">Export Data</button>
+                    <button class="btn btn-secondary" onclick="importData()" style="flex:1;">Import Data</button>
+                </div>
+            </div>
         </div>
-        <div id="networkInfo" class="mt-4 text-center" style="max-width: 400px; display: none;">
-            <p class="text-muted text-sm mb-2">Open on your phone to control the display:</p>
-            <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.75rem; font-family: monospace; font-size: 0.9rem; color: var(--accent); user-select: all; cursor: pointer;" onclick="navigator.clipboard.writeText(this.textContent.trim())" title="Click to copy" id="networkURL"></div>
-            <p class="text-muted text-sm mt-2" style="font-size: 0.75rem;">Both devices must be on the same Wi-Fi.</p>
-        </div>
-        <button class="btn btn-secondary mt-4" onclick="playAttention()" style="padding: 1rem 2rem;">
-            Attention
-        </button>
     </div>
 
     <script>
@@ -217,10 +537,103 @@
             const host = location.hostname;
             if (host !== 'localhost' && host !== '127.0.0.1') {
                 const url = location.origin + '/controller.html';
-                document.getElementById('networkURL').textContent = url;
-                document.getElementById('networkInfo').style.display = 'block';
+                var el = document.getElementById('adminNetworkURLText');
+                var container = document.getElementById('adminNetworkURL');
+                if (el) el.textContent = url;
+                if (container) container.style.display = '';
             }
         })();
+
+        // Admin: broadcast event name to display
+        function broadcastEventName() {
+            var name = document.getElementById('adminEventName').value.trim();
+            if (!name) return;
+            localStorage.setItem('eventToolsEventName', name);
+            sendCommand('set-event-name', { name: name });
+        }
+
+        // Admin: broadcast theme to all devices
+        function broadcastTheme(theme) {
+            localStorage.setItem('eventToolsTheme', theme);
+            sendCommand('set-theme', { theme: theme });
+        }
+
+        // Admin: broadcast accent colour to all devices
+        function broadcastAccent(color) {
+            localStorage.setItem('eventToolsAccent', color);
+            sendCommand('set-accent', { color: color });
+        }
+
+        // Admin: controller feature toggles
+        function saveFeatures() {
+            var toggles = document.querySelectorAll('#featureToggles input[data-feature]');
+            var features = {};
+            toggles.forEach(function(t) { features[t.dataset.feature] = t.checked; });
+            localStorage.setItem('eventToolsFeatures', JSON.stringify(features));
+            sendCommand('ctrl-features', { features: features });
+        }
+
+        function loadFeatures() {
+            try {
+                var raw = localStorage.getItem('eventToolsFeatures');
+                if (raw) {
+                    var features = JSON.parse(raw);
+                    Object.keys(features).forEach(function(key) {
+                        var cb = document.querySelector('#featureToggles input[data-feature="' + key + '"]');
+                        if (cb) cb.checked = features[key];
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // Admin: refresh stats from localStorage
+        function refreshStats() {
+            try {
+                var praw = localStorage.getItem('eventToolsParticipants');
+                var participants = praw ? JSON.parse(praw) : [];
+                document.getElementById('statParticipants').textContent = participants.length;
+            } catch(e) {}
+
+            try {
+                var traw = localStorage.getItem('eventToolsTeams');
+                var teams = traw ? JSON.parse(traw) : [];
+                document.getElementById('statTeams').textContent = teams.length;
+            } catch(e) {}
+
+            try {
+                var sraw = localStorage.getItem('eventToolsScoring');
+                if (sraw) {
+                    var sdata = JSON.parse(sraw);
+                    var steams = sdata.teams || [];
+                    var rounds = steams.length > 0 ? steams[0].scores.length : 0;
+                    var topScore = 0;
+                    steams.forEach(function(t) {
+                        var s = t.scores.reduce(function(a,b){return a+b;}, 0);
+                        if (s > topScore) topScore = s;
+                    });
+                    document.getElementById('statRounds').textContent = rounds;
+                    document.getElementById('statTopScore').textContent = topScore;
+                }
+            } catch(e) {}
+        }
+
+        refreshStats();
+        loadFeatures();
+
+        // Load saved event name
+        (function() {
+            var saved = localStorage.getItem('eventToolsEventName');
+            if (saved) document.getElementById('adminEventName').value = saved;
+        })();
+
+        function pollClients() {
+            fetch('/api/clients').then(function(r) { return r.json(); }).then(function(data) {
+                var count = data.count || 0;
+                document.getElementById('adminClientCount').textContent = count;
+            }).catch(function() {});
+        }
+        pollClients();
+        setInterval(pollClients, 3000);
 
         function toggleMenu() {
             const menu = document.getElementById('menuDropdown');

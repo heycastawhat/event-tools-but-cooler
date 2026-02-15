@@ -40,6 +40,12 @@
         <div class="timer-wrap">
             <div class="timer-mode-label" id="timerModeLabel">Stopwatch</div>
             <div class="timer-digits" id="timerDigits">00:00:00</div>
+            <div id="timerControls" style="margin-top:1.5rem;display:flex;gap:1rem;justify-content:center;">
+                <button class="timer-btn" onclick="adjustCountdown(60000)">+1 min</button>
+                <button class="timer-btn" onclick="adjustCountdown(10000)">+10 sec</button>
+                <button class="timer-btn" onclick="adjustCountdown(-10000)">-10 sec</button>
+                <button class="timer-btn" onclick="adjustCountdown(-60000)">-1 min</button>
+            </div>
         </div>
     </div>
 
@@ -699,6 +705,16 @@
     </style>
 
     <script>
+                // Add or subtract ms from countdown timer (only in countdown mode)
+                function adjustCountdown(ms) {
+                    if (timerMode !== 'countdown') return;
+                    // Add to the remaining time, not the original set time
+                    let remaining = Math.max(0, timerCountdownMs - timerElapsed);
+                    remaining += ms;
+                    if (remaining < 0) remaining = 0;
+                    timerCountdownMs = timerElapsed + remaining;
+                    updateTimerDisplay();
+                }
         let currentScene = 'standby';
         let timerMode = 'stopwatch';
         let timerRunning = false;
@@ -1003,6 +1019,7 @@
                 case 'gradient': startGradientWave(); break;
                 case 'bouncing': startBouncingLogo(); break;
                 case 'matrix': startMatrixRain(); break;
+                case 'blobs': startAmbientBlobs(); break;
                 default: clearBlank(); break;
             }
         }
@@ -1142,7 +1159,41 @@
             draw();
         }
 
-        // Ambient blobs removed
+        // Ambient blobs
+        function startAmbientBlobs() {
+            const container = document.getElementById('blankContainer');
+            const colors = ['#58a6ff', '#a371f7', '#3fb950', '#f0883e', '#db61a2', '#f78166'];
+            const blobs = [];
+            for (let i = 0; i < 6; i++) {
+                const blob = document.createElement('div');
+                blob.className = 'blob';
+                const size = 150 + Math.random() * 200;
+                blob.style.width = size + 'px';
+                blob.style.height = size + 'px';
+                blob.style.background = colors[i % colors.length];
+                blob.style.left = Math.random() * 100 + '%';
+                blob.style.top = Math.random() * 100 + '%';
+                container.appendChild(blob);
+                blobs.push({
+                    el: blob, x: Math.random() * container.clientWidth,
+                    y: Math.random() * container.clientHeight,
+                    vx: (Math.random() - 0.5) * 0.8, vy: (Math.random() - 0.5) * 0.8, size: size
+                });
+            }
+            let raf;
+            function step() {
+                const cw = container.clientWidth, ch = container.clientHeight;
+                for (const b of blobs) {
+                    b.x += b.vx; b.y += b.vy;
+                    if (b.x < -b.size / 2 || b.x > cw + b.size / 2) b.vx *= -1;
+                    if (b.y < -b.size / 2 || b.y > ch + b.size / 2) b.vy *= -1;
+                    b.el.style.transform = `translate(${b.x}px, ${b.y}px)`;
+                }
+                raf = requestAnimationFrame(step);
+            }
+            _blankAnimation = { stop: () => { cancelAnimationFrame(raf); blobs.forEach(b => b.el.remove()); } };
+            step();
+        }
 
         function playWinSound() {
             try {
