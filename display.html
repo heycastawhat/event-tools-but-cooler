@@ -70,11 +70,12 @@
         </div>
     </div>
 
-    <div id="scene-blank" class="scene">
-        <div id="blankContainer" style="position:relative;width:100%;height:100%;overflow:hidden;">
-            <canvas id="blankCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
-            <div id="blankOverlay" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
-                <div id="blankLogo" style="pointer-events:auto;font-size:4rem;font-weight:800;color:var(--text-primary);text-shadow:0 6px 30px rgba(0,0,0,0.6);display:none;">Event Suite</div>
+    <div id="scene-ambient" class="scene">
+        <div id="ambientContainer" style="position:relative;width:100%;height:100%;overflow:hidden;">
+            <canvas id="ambientCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+            <div id="ambientOverlay" style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.5rem;">
+                <div id="ambientLogo" style="pointer-events:auto;font-size:4rem;font-weight:800;color:var(--text-primary);text-shadow:0 6px 30px rgba(0,0,0,0.6);display:none;">Event Suite</div>
+                <div id="ambientText" style="font-size:3rem;font-weight:700;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,0.7);text-align:center;padding:0 2rem;display:none;"></div>
             </div>
         </div>
     </div>
@@ -585,8 +586,8 @@
             30% { opacity: 1; transform: scale(1); }
         }
 
-        /* Blank */
-        #scene-blank {
+        /* Ambient */
+        #scene-ambient {
             background: #000;
         }
 
@@ -664,9 +665,9 @@
             0% { opacity: 1; }
             100% { opacity: 0; }
         }
-        /* Blank scene animation helper styles */
-        #scene-blank { background: #000; }
-        .blank-gradient { animation: gradientShift 20s linear infinite; background-size: 400% 400%; }
+        /* Ambient scene animation helper styles */
+        #scene-ambient { background: #000; }
+        .ambient-gradient { animation: gradientShift 20s linear infinite; background-size: 400% 400%; }
         .blob { position:absolute;border-radius:50%;opacity:0.6;mix-blend-mode:screen;filter:blur(18px); }
         /* Slides */
         #scene-slides {
@@ -735,7 +736,7 @@
         let _pdfDoc = null;
         let _pdfPage = 0;
         let _pdfTotalPages = 0;
-        let _preBlankScene = null;
+        let _preAmbientScene = null;
         let _displayPC = null;
 
 
@@ -807,6 +808,15 @@
                 currentScene = scene;
             }
             if (scene === 'waiting') startWaiting();
+            if (scene === 'slides' && slidesFiles.length === 0) {
+                fetch('/api/files').then(r => r.json()).then(files => {
+                    if (files.length > 0) {
+                        slidesFiles = files;
+                        slidesIndex = 0;
+                        loadSlide();
+                    }
+                }).catch(() => {});
+            }
         }
 
         // Timer
@@ -1001,65 +1011,74 @@
             setTimeout(() => container.innerHTML = '', 5000);
         }
 
-        // Blank scene animations
-        let _blankMode = null;
-        let _blankAnimation = null;
-        let _blankCanvas, _blankCtx, _blankW, _blankH;
+        // Ambient scene animations
+        let _ambientMode = null;
+        let _ambientAnimation = null;
+        let _ambientCanvas, _ambientCtx, _ambientW, _ambientH;
 
-        function setBlankMode(mode) {
-            _blankMode = mode;
-            const canvas = document.getElementById('blankCanvas');
-            const overlayLogo = document.getElementById('blankLogo');
+        function setAmbientMode(mode, text) {
+            _ambientMode = mode;
+            const canvas = document.getElementById('ambientCanvas');
+            const overlayLogo = document.getElementById('ambientLogo');
+            const overlayText = document.getElementById('ambientText');
             if (!canvas) return;
-            // resize
             canvas.width = canvas.clientWidth * devicePixelRatio;
             canvas.height = canvas.clientHeight * devicePixelRatio;
-            _blankCanvas = canvas; _blankCtx = canvas.getContext('2d');
-            _blankW = canvas.width; _blankH = canvas.height;
+            _ambientCanvas = canvas; _ambientCtx = canvas.getContext('2d');
+            _ambientW = canvas.width; _ambientH = canvas.height;
             overlayLogo.style.display = 'none';
-            cancelBlank();
+            cancelAmbient();
+            // overlay text
+            if (text) {
+                overlayText.textContent = text;
+                overlayText.style.display = 'block';
+            } else {
+                overlayText.style.display = 'none';
+            }
             switch (mode) {
                 case 'starfield': startStarfield(); break;
                 case 'gradient': startGradientWave(); break;
                 case 'bouncing': startBouncingLogo(); break;
                 case 'matrix': startMatrixRain(); break;
                 case 'blobs': startAmbientBlobs(); break;
-                default: clearBlank(); break;
+                case 'campfire': startCampfire(); break;
+                case 'geometric': startGeometricWaves(); break;
+                case 'lava': startLavaLamp(); break;
+                default: cancelAmbient(); break;
             }
         }
 
-        function cancelBlank() {
-            if (_blankAnimation && _blankAnimation.stop) try { _blankAnimation.stop(); } catch (e) {}
-            _blankAnimation = null;
-            const ctx = _blankCtx;
-            if (ctx) ctx.clearRect(0,0,_blankW,_blankH);
-            document.getElementById('scene-blank').style.background = '';
-            document.getElementById('blankLogo').style.display = 'none';
-            // remove any blobs
-            document.querySelectorAll('#blankContainer .blob').forEach(b => b.remove());
+        function cancelAmbient() {
+            if (_ambientAnimation && _ambientAnimation.stop) try { _ambientAnimation.stop(); } catch (e) {}
+            _ambientAnimation = null;
+            const ctx = _ambientCtx;
+            if (ctx) ctx.clearRect(0,0,_ambientW,_ambientH);
+            document.getElementById('scene-ambient').style.background = '';
+            document.getElementById('ambientLogo').style.display = 'none';
+            document.querySelectorAll('#ambientContainer .blob').forEach(b => b.remove());
         }
 
-        function clearBlank() { cancelBlank(); }
+        function clearAmbient() { cancelAmbient(); }
 
         // Starfield — use pixel positions and speeds
         function startStarfield() {
-            const count = Math.max(100, Math.floor((_blankW/_blankH) * 120));
+            const count = Math.max(100, Math.floor((_ambientW/_ambientH) * 120));
             const stars = Array.from({length:count}, () => ({
-                x: Math.random() * _blankW,
-                y: Math.random() * _blankH,
+                x: Math.random() * _ambientW,
+                y: Math.random() * _ambientH,
                 z: 0.2 + Math.random() * 2.8,
                 vx: (Math.random()-0.5) * 0.2,
                 vy: 0.05 + Math.random() * 0.4
             }));
             let raf;
             function draw() {
-                const ctx = _blankCtx; ctx.clearRect(0,0,_blankW,_blankH);
+                const ctx = _ambientCtx; ctx.clearRect(0,0,_ambientW,_ambientH);
                 for (let s of stars) {
                     s.y += s.vy * s.z;
                     s.x += s.vx * s.z;
-                    if (s.y > _blankH + 10) { s.y = -10; s.x = Math.random() * _blankW; }
-                    if (s.x < -10) s.x = _blankW + 10;
-                    if (s.x > _blankW + 10) s.x = -10;
+                    if (s.y > _ambientH + 10) { s.y = -10; s.x = Math.random() * _ambientW; }
+                    if (s.x < -10) s.x = _ambientW + 10;
+                    if (s.x > _ambientW + 10) s.x = -10;
                     const r = Math.max(0.6, s.z * 0.6) * devicePixelRatio;
                     ctx.globalAlpha = Math.min(1, 0.4 + s.z / 3);
                     ctx.fillStyle = '#fff';
@@ -1067,24 +1086,61 @@
                 }
                 raf = requestAnimationFrame(draw);
             }
-            _blankAnimation = { stop: () => cancelAnimationFrame(raf) };
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
             draw();
         }
 
-        // Gradient wave
+        // Gradient — smoothly drifting color pools on canvas
         function startGradientWave() {
-            const el = document.getElementById('scene-blank');
-            el.style.background = 'linear-gradient(120deg, #0f2027 0%, #203a43 50%, #2c5364 100%)';
-            el.style.backgroundSize = '400% 400%';
-            el.style.backgroundPosition = '0% 50%';
-            el.classList.add('blank-gradient');
-            _blankAnimation = { stop: () => { el.classList.remove('blank-gradient'); el.style.backgroundSize = ''; el.style.backgroundPosition = ''; } };
+            const ctx = _ambientCtx;
+            const W = _ambientW, H = _ambientH;
+            const spots = [
+                { hue: 210, sat: 80, lum: 25, x: 0.2, y: 0.3, r: 0.5, sx: 0.0003, sy: 0.0005, px: 0, py: 0 },
+                { hue: 270, sat: 60, lum: 20, x: 0.7, y: 0.2, r: 0.45, sx: 0.0004, sy: 0.0003, px: 1.5, py: 2.0 },
+                { hue: 320, sat: 50, lum: 18, x: 0.5, y: 0.8, r: 0.55, sx: 0.0002, sy: 0.0006, px: 3.0, py: 0.5 },
+                { hue: 180, sat: 70, lum: 22, x: 0.8, y: 0.7, r: 0.4, sx: 0.0005, sy: 0.0002, px: 4.5, py: 3.5 },
+                { hue: 150, sat: 50, lum: 15, x: 0.3, y: 0.6, r: 0.5, sx: 0.0003, sy: 0.0004, px: 2.0, py: 5.0 },
+            ];
+            let raf, t = 0;
+            function draw() {
+                // dark base
+                ctx.fillStyle = '#080810';
+                ctx.fillRect(0, 0, W, H);
+
+                for (const s of spots) {
+                    const cx = (s.x + Math.sin(t * s.sx + s.px) * 0.3) * W;
+                    const cy = (s.y + Math.cos(t * s.sy + s.py) * 0.3) * H;
+                    const radius = s.r * Math.max(W, H);
+                    // hue drifts slowly
+                    const hue = s.hue + Math.sin(t * 0.0002 + s.px) * 30;
+                    const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    grd.addColorStop(0, `hsla(${hue},${s.sat}%,${s.lum}%,0.6)`);
+                    grd.addColorStop(0.4, `hsla(${hue},${s.sat}%,${s.lum * 0.7}%,0.3)`);
+                    grd.addColorStop(1, 'hsla(0,0%,0%,0)');
+                    ctx.fillStyle = grd;
+                    ctx.fillRect(0, 0, W, H);
+                }
+
+                // subtle noise-like texture via small random dots (sparse, not every pixel)
+                ctx.globalAlpha = 0.015;
+                ctx.fillStyle = '#fff';
+                for (let i = 0; i < 60; i++) {
+                    const nx = Math.random() * W, ny = Math.random() * H;
+                    ctx.fillRect(nx, ny, 2 * devicePixelRatio, 2 * devicePixelRatio);
+                }
+                ctx.globalAlpha = 1;
+
+                t++;
+                raf = requestAnimationFrame(draw);
+            }
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
         }
 
         // Bouncing logo — pixel-based, slower, keeps inside bounds
         function startBouncingLogo() {
-            const logo = document.getElementById('blankLogo');
-            const container = document.getElementById('blankContainer');
+            const logo = document.getElementById('ambientLogo');
+            const container = document.getElementById('ambientContainer');
             logo.style.display = 'block';
             // initialize sizes on next frame to ensure layout metrics are correct
             let x = 0, y = 0, dx = 2, dy = 2, raf;
@@ -1132,7 +1188,7 @@
                 }
 
                 window.addEventListener('resize', resizeHandler);
-                _blankAnimation = { stop: () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resizeHandler); } };
+                _ambientAnimation = { stop: () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resizeHandler); } };
                 step();
             }
 
@@ -1142,30 +1198,30 @@
 
         // Matrix rain
         function startMatrixRain() {
-            const ctx = _blankCtx;
-            const cols = Math.floor(_blankW / 14);
+            const ctx = _ambientCtx;
+            const cols = Math.floor(_ambientW / 14);
             const drops = new Array(cols).fill(1);
             let raf;
             ctx.fillStyle = 'rgba(0,0,0,0.15)';
             function draw() {
                 ctx.fillStyle = 'rgba(0,0,0,0.15)';
-                ctx.fillRect(0,0,_blankW,_blankH);
+                ctx.fillRect(0,0,_ambientW,_ambientH);
                 ctx.fillStyle = '#0f0'; ctx.font = (12*devicePixelRatio)+'px monospace';
                 for (let i=0;i<cols;i++) {
                     const text = String.fromCharCode(0x30A0 + Math.random()*96);
                     ctx.fillText(text, i*14*devicePixelRatio, drops[i]*14*devicePixelRatio);
-                    if (drops[i]*14*devicePixelRatio > _blankH && Math.random() > 0.975) drops[i]=0;
+                    if (drops[i]*14*devicePixelRatio > _ambientH && Math.random() > 0.975) drops[i]=0;
                     drops[i]++;
                 }
                 raf = requestAnimationFrame(draw);
             }
-            _blankAnimation = { stop: () => cancelAnimationFrame(raf) };
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
             draw();
         }
 
         // Ambient blobs
         function startAmbientBlobs() {
-            const container = document.getElementById('blankContainer');
+            const container = document.getElementById('ambientContainer');
             const colors = ['#58a6ff', '#a371f7', '#3fb950', '#f0883e', '#db61a2', '#f78166'];
             const blobs = [];
             for (let i = 0; i < 6; i++) {
@@ -1195,8 +1251,258 @@
                 }
                 raf = requestAnimationFrame(step);
             }
-            _blankAnimation = { stop: () => { cancelAnimationFrame(raf); blobs.forEach(b => b.el.remove()); } };
+            _ambientAnimation = { stop: () => { cancelAnimationFrame(raf); blobs.forEach(b => b.el.remove()); } };
             step();
+        }
+
+        // Campfire embers — warm particles drifting up with a flickering fire glow
+        function startCampfire() {
+            const ctx = _ambientCtx;
+            const W = _ambientW, H = _ambientH;
+            const dpr = devicePixelRatio;
+            const embers = [];
+            for (let i = 0; i < 200; i++) resetEmber(embers[i] = {}, true);
+
+            function resetEmber(e, scatter) {
+                const spread = 0.5;
+                e.x = W * (0.5 - spread/2) + Math.random() * W * spread;
+                e.y = scatter ? Math.random() * H : H + Math.random() * 40;
+                e.vx = (Math.random() - 0.5) * 0.8;
+                e.vy = -(0.6 + Math.random() * 2.0);
+                e.size = (1.5 + Math.random() * 3) * dpr;
+                e.life = 1;
+                e.maxLife = 1;
+                e.decay = 0.003 + Math.random() * 0.006;
+                e.wobbleSpeed = 1 + Math.random() * 3;
+                e.wobbleAmp = 0.3 + Math.random() * 0.8;
+                e.t = Math.random() * 100;
+            }
+
+            let raf, t = 0;
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+                // dark warm background
+                ctx.fillStyle = '#0a0604';
+                ctx.fillRect(0, 0, W, H);
+
+                // large soft fire glow at bottom center
+                const flicker = 0.85 + Math.sin(t * 0.07) * 0.08 + Math.sin(t * 0.13) * 0.07;
+                const glowR = H * 0.55 * flicker;
+                const grd = ctx.createRadialGradient(W/2, H * 1.05, 0, W/2, H * 1.05, glowR);
+                grd.addColorStop(0, `rgba(255,100,20,${0.35 * flicker})`);
+                grd.addColorStop(0.3, `rgba(255,60,10,${0.15 * flicker})`);
+                grd.addColorStop(0.6, `rgba(180,30,5,${0.06 * flicker})`);
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grd;
+                ctx.fillRect(0, 0, W, H);
+
+                // second glow, slightly offset for flicker
+                const grd2 = ctx.createRadialGradient(W/2 + Math.sin(t*0.05)*20, H*1.02, 0, W/2, H*1.02, glowR*0.7);
+                grd2.addColorStop(0, `rgba(255,180,50,${0.12 * flicker})`);
+                grd2.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grd2;
+                ctx.fillRect(0, 0, W, H);
+
+                // embers
+                for (const e of embers) {
+                    e.t += 0.016;
+                    e.x += e.vx + Math.sin(e.t * e.wobbleSpeed) * e.wobbleAmp;
+                    e.y += e.vy;
+                    e.vy *= 0.999; // slow down slightly as they rise
+                    e.life -= e.decay;
+                    if (e.life <= 0) { resetEmber(e, false); continue; }
+
+                    const progress = 1 - e.life;
+                    const alpha = e.life * (progress < 0.1 ? progress / 0.1 : 1);
+                    const r = e.size * (0.3 + e.life * 0.7);
+
+                    // warm color: bright yellow-white at start → orange → deep red at end
+                    const temp = e.life;
+                    const red = 255;
+                    const green = Math.floor(80 + temp * 170);
+                    const blue = Math.floor(temp * temp * 80);
+
+                    ctx.globalAlpha = alpha * 0.9;
+                    ctx.fillStyle = `rgb(${red},${green},${blue})`;
+                    ctx.beginPath();
+                    ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // soft glow around each ember
+                    ctx.globalAlpha = alpha * 0.3;
+                    const eg = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, r * 4);
+                    eg.addColorStop(0, `rgba(${red},${green},${blue},0.4)`);
+                    eg.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = eg;
+                    ctx.fillRect(e.x - r*4, e.y - r*4, r*8, r*8);
+                }
+                ctx.globalAlpha = 1;
+                t++;
+                raf = requestAnimationFrame(draw);
+            }
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
+        }
+
+        // Geometric waves — layered sine waves with clean lines
+        function startGeometricWaves() {
+            const ctx = _ambientCtx;
+            const W = _ambientW, H = _ambientH;
+            const dpr = devicePixelRatio;
+            const layers = [];
+            const layerCount = 12;
+            for (let i = 0; i < layerCount; i++) {
+                layers.push({
+                    yBase: H * (0.2 + (i / layerCount) * 0.6),
+                    amplitude: 20 + i * 8,
+                    freq: 0.0015 + i * 0.0003,
+                    speed: 0.008 + i * 0.002,
+                    phase: i * 0.8,
+                    hue: 200 + i * 12,
+                    thickness: (2 + i * 0.3) * dpr
+                });
+            }
+            let raf, t = 0;
+            function draw() {
+                ctx.clearRect(0, 0, W, H);
+                // dark blue-black background
+                const bg = ctx.createLinearGradient(0, 0, 0, H);
+                bg.addColorStop(0, '#050510');
+                bg.addColorStop(1, '#0a0a20');
+                ctx.fillStyle = bg;
+                ctx.fillRect(0, 0, W, H);
+
+                for (let li = 0; li < layers.length; li++) {
+                    const l = layers[li];
+                    const depthAlpha = 0.15 + (li / layers.length) * 0.5;
+
+                    // filled shape below the wave for soft glow
+                    ctx.beginPath();
+                    for (let x = 0; x <= W; x += 3) {
+                        const wave = Math.sin(x * l.freq + t * l.speed + l.phase) * l.amplitude
+                            + Math.sin(x * l.freq * 2.3 + t * l.speed * 0.7 + l.phase * 1.5) * l.amplitude * 0.3;
+                        const y = l.yBase + wave;
+                        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.lineTo(W, H);
+                    ctx.lineTo(0, H);
+                    ctx.closePath();
+                    ctx.fillStyle = `hsla(${l.hue + Math.sin(t * 0.003) * 20},60%,50%,${depthAlpha * 0.08})`;
+                    ctx.fill();
+
+                    // the wave line itself
+                    ctx.beginPath();
+                    for (let x = 0; x <= W; x += 3) {
+                        const wave = Math.sin(x * l.freq + t * l.speed + l.phase) * l.amplitude
+                            + Math.sin(x * l.freq * 2.3 + t * l.speed * 0.7 + l.phase * 1.5) * l.amplitude * 0.3;
+                        const y = l.yBase + wave;
+                        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.strokeStyle = `hsla(${l.hue + Math.sin(t * 0.003) * 20},70%,65%,${depthAlpha})`;
+                    ctx.lineWidth = l.thickness;
+                    ctx.stroke();
+
+                    // glow line on top
+                    ctx.strokeStyle = `hsla(${l.hue + Math.sin(t * 0.003) * 20},80%,80%,${depthAlpha * 0.4})`;
+                    ctx.lineWidth = l.thickness * 0.4;
+                    ctx.stroke();
+                }
+                t++;
+                raf = requestAnimationFrame(draw);
+            }
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
+        }
+
+        // Lava lamp — smooth metaballs with gradient color blending
+        function startLavaLamp() {
+            const ctx = _ambientCtx;
+            const W = _ambientW, H = _ambientH;
+            const scale = 3;
+            const sw = Math.ceil(W / scale), sh = Math.ceil(H / scale);
+            const balls = [];
+            const count = 6;
+            const palette = [
+                { r: 220, g: 30, b: 70 },
+                { r: 255, g: 90, b: 20 },
+                { r: 180, g: 40, b: 200 },
+                { r: 80, g: 20, b: 220 },
+                { r: 240, g: 60, b: 120 },
+                { r: 200, g: 50, b: 180 },
+            ];
+            for (let i = 0; i < count; i++) {
+                balls.push({
+                    x: Math.random() * W, y: Math.random() * H,
+                    vx: (Math.random() - 0.5) * 0.6,
+                    vy: -0.3 + Math.random() * 0.6,
+                    r: (80 + Math.random() * 100) * (W / 1920 + 0.5),
+                    color: palette[i % palette.length],
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            const offscreen = new OffscreenCanvas(sw, sh);
+            const octx = offscreen.getContext('2d');
+            const imgData = octx.createImageData(sw, sh);
+            let raf, t = 0;
+
+            function draw() {
+                t += 0.01;
+                for (const b of balls) {
+                    b.x += b.vx + Math.sin(t + b.phase) * 0.3;
+                    b.y += b.vy + Math.cos(t * 0.7 + b.phase) * 0.2;
+                    // buoyancy: rise when low, sink when high
+                    b.vy += (H * 0.5 - b.y) * 0.00002;
+                    b.vx += (W * 0.5 - b.x) * 0.00001;
+                    // damping
+                    b.vx *= 0.999; b.vy *= 0.999;
+                    // soft bounds
+                    if (b.x < b.r * 0.5) b.vx += 0.05;
+                    if (b.x > W - b.r * 0.5) b.vx -= 0.05;
+                    if (b.y < b.r * 0.5) b.vy += 0.05;
+                    if (b.y > H - b.r * 0.5) b.vy -= 0.05;
+                }
+
+                const d = imgData.data;
+                for (let y = 0; y < sh; y++) {
+                    for (let x = 0; x < sw; x++) {
+                        const px = x * scale, py = y * scale;
+                        let sumR = 0, sumG = 0, sumB = 0, sumW = 0;
+                        for (const b of balls) {
+                            const dx = px - b.x, dy = py - b.y;
+                            const dist2 = dx * dx + dy * dy + 1;
+                            const influence = (b.r * b.r) / dist2;
+                            sumR += b.color.r * influence;
+                            sumG += b.color.g * influence;
+                            sumB += b.color.b * influence;
+                            sumW += influence;
+                        }
+                        const idx = (y * sw + x) * 4;
+                        if (sumW > 1.0) {
+                            // smooth threshold with soft edge
+                            const edge = Math.min(1, (sumW - 1.0) * 2.5);
+                            const bright = 0.5 + edge * 0.5;
+                            d[idx]     = Math.min(255, (sumR / sumW) * bright);
+                            d[idx + 1] = Math.min(255, (sumG / sumW) * bright);
+                            d[idx + 2] = Math.min(255, (sumB / sumW) * bright);
+                            d[idx + 3] = Math.floor(180 + edge * 75);
+                        } else {
+                            // background — very dark with a slight warm tint
+                            const bg = sumW * 0.15;
+                            d[idx] = Math.floor(15 + bg * 40);
+                            d[idx+1] = Math.floor(5 + bg * 10);
+                            d[idx+2] = Math.floor(20 + bg * 30);
+                            d[idx+3] = 255;
+                        }
+                    }
+                }
+                octx.putImageData(imgData, 0, 0);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(offscreen, 0, 0, W, H);
+                raf = requestAnimationFrame(draw);
+            }
+            _ambientAnimation = { stop: () => cancelAnimationFrame(raf) };
+            draw();
         }
 
         function playWinSound() {
@@ -1593,9 +1899,9 @@
                     if (v2) v2.pause();
                     break;
 
-                case 'set-blank':
-                    if (data.mode) setBlankMode(data.mode);
-                    if (data.show) showScene('blank');
+                case 'set-ambient':
+                    if (data.mode) setAmbientMode(data.mode, data.text);
+                    if (data.show) showScene('ambient');
                     break;
 
                 case 'camera-offer':
@@ -1628,19 +1934,19 @@
         }, true);
 
         document.addEventListener('keydown', function(e) {
-            // B key — toggle blank screen
+            // B key — toggle ambient screen
             if (e.key === 'b' || e.key === 'B' || e.key === '.') {
                 e.preventDefault();
-                if (currentScene === 'blank') {
-                    if (_preBlankScene) {
-                        showScene(_preBlankScene);
-                        sendCommand('show-scene', { scene: _preBlankScene });
-                        _preBlankScene = null;
+                if (currentScene === 'ambient') {
+                    if (_preAmbientScene) {
+                        showScene(_preAmbientScene);
+                        sendCommand('show-scene', { scene: _preAmbientScene });
+                        _preAmbientScene = null;
                     }
                 } else {
-                    _preBlankScene = currentScene;
-                    showScene('blank');
-                    sendCommand('show-scene', { scene: 'blank' });
+                    _preAmbientScene = currentScene;
+                    showScene('ambient');
+                    sendCommand('show-scene', { scene: 'ambient' });
                 }
                 return;
             }

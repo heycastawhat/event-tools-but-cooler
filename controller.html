@@ -104,7 +104,7 @@
             <button class="scene-btn" data-scene="slides" onclick="switchScene('slides')">Slides</button>
             <button class="scene-btn" data-scene="camera" onclick="switchScene('camera')">Camera</button>
             <button class="scene-btn" data-scene="waiting" onclick="switchScene('waiting')">Waiting</button>
-            <button class="scene-btn" data-scene="blank" onclick="switchScene('blank')">Blank</button>
+            <button class="scene-btn" data-scene="ambient" onclick="switchScene('ambient')">Ambient</button>
             <button class="scene-btn" onclick="showCustomizeModal()">Customise</button>
         </div>
 
@@ -326,23 +326,30 @@
             </div>
         </div>
 
-        <div id="controls-blank" class="scene-controls" style="display: none;">
+        <div id="controls-ambient" class="scene-controls" style="display: none;">
             <div class="card">
-                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Blank Screen</h3>
+                <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Ambient Screen</h3>
                 <div style="display:flex;gap:8px;align-items:center;margin-bottom:0.75rem;">
                     <label style="margin:0;white-space:nowrap;">Mode</label>
-                    <select id="ctrlBlankMode" style="flex:1;">
+                    <select id="ctrlAmbientMode" style="flex:1;">
                         <option value="starfield">Starfield</option>
-                        <option value="gradient">Gradient Wave</option>
+                        <option value="gradient">Gradient</option>
                         <option value="bouncing">Bouncing Logo</option>
                         <option value="matrix">Matrix Rain</option>
                         <option value="blobs">Ambient Blobs</option>
+                        <option value="campfire">Campfire Embers</option>
+                        <option value="geometric">Geometric Waves</option>
+                        <option value="lava">Lava Lamp</option>
                     </select>
                 </div>
+                <div style="margin-bottom:0.75rem;">
+                    <label style="margin:0;display:block;margin-bottom:0.25rem;">Overlay Text</label>
+                    <input type="text" id="ctrlAmbientText" placeholder="Text to show on screen..." style="width:100%;">
+                </div>
                 <div class="flex gap-2">
-                    <button class="btn btn-primary" onclick="setBlank(false)" style="flex:1;">Set</button>
-                    <button class="btn btn-primary" onclick="setBlank(true)" style="flex:1;">Set & Show</button>
-                    <button class="btn btn-secondary" onclick="setBlank(null,true)" style="flex:1;">Show Blank</button>
+                    <button class="btn btn-primary" onclick="setAmbient(false)" style="flex:1;">Set</button>
+                    <button class="btn btn-primary" onclick="setAmbient(true)" style="flex:1;">Set & Show</button>
+                    <button class="btn btn-secondary" onclick="setAmbient(null,true)" style="flex:1;">Show</button>
                 </div>
             </div>
         </div>
@@ -1003,19 +1010,16 @@
             }
         }
 
-        // Blank controls: send blank mode to display
-        function setBlank(show) {
-            const sel = document.getElementById('ctrlBlankMode');
+        // Ambient controls: send ambient mode to display
+        function setAmbient(show) {
+            const sel = document.getElementById('ctrlAmbientMode');
             const mode = sel ? sel.value : null;
+            const text = document.getElementById('ctrlAmbientText').value.trim();
             if (!mode && !show) {
                 alert('Select a mode to set');
                 return;
             }
-            sendCommand('set-blank', { mode: mode, show: !!show });
-            if (!show) {
-                // update local preview state
-                console.log('Blank mode set locally:', mode);
-            }
+            sendCommand('set-ambient', { mode: mode, text: text, show: !!show });
         }
 
         // --- Interactive teams editor in controller preview ---
@@ -1317,6 +1321,8 @@
                 document.getElementById('cameraStartBtn').style.display = 'none';
                 document.getElementById('cameraStopBtn').style.display = '';
                 document.getElementById('cameraFlipBtn').style.display = '';
+                // ensure display is on camera scene (bypass preview queue)
+                _realSendCommand('show-scene', { scene: 'camera' });
                 startWebRTC(stream);
             }).catch(function(err) {
                 alert('Could not access camera: ' + err.message);
