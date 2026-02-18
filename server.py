@@ -12,8 +12,7 @@ import threading
 import webbrowser
 
 DEBUG = "--debug" in sys.argv
-NO_OCR = "--no-ocr" in sys.argv
-_args = [a for a in sys.argv[1:] if a not in ("--debug", "--no-ocr")]
+_args = [a for a in sys.argv[1:] if a != "--debug"]
 PORT = int(_args[0]) if _args else 8000
 DIR = os.path.dirname(os.path.abspath(__file__))
 CERT_FILE = os.path.join(DIR, ".event-tools-cert.pem")
@@ -140,9 +139,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with clients_lock:
                 count = len(clients)
             self.wfile.write(json.dumps({"count": count}).encode())
-        elif NO_OCR and self.path.startswith("/assets/tesseract/"):
-            self.send_response(404)
-            self.end_headers()
         else:
             super().do_GET()
 
